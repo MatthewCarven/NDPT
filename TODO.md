@@ -1,9 +1,5 @@
 # TODO
 
-## For Matthew
-
-- [ ] Push `main` (origin is set).
-
 ## Waiting on another machine
 
 - [ ] **Confirm NDPT works without Administrator rights.** It can't be tested on Matthew's
