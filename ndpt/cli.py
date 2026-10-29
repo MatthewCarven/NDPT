@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util
 import socket
 import sys
 from collections.abc import Callable, Sequence
@@ -17,18 +18,15 @@ from rich.text import Text
 from ndpt import __version__
 from ndpt.core.backends import Prober, make_prober
 from ndpt.core.backends.fake import DemoResolver, FakeProber, demo_route
-from ndpt.core.models import ProbeStatus
 from ndpt.core.ping import PingSession
 from ndpt.core.resolve import Resolver
 from ndpt.core.session import MAX_PAYLOAD, Session
 from ndpt.core.trace import TraceSession
-from ndpt.textviz import fmt_ms, loss_style, sparkline
+from ndpt.textviz import fmt_ms, hop_label, host_label, last_cell, loss_cell, sparkline
 
 HISTORY = 30          # samples in each row's sparkline
 MIN_INTERVAL = 0.1    # for real probes, so a typo can't flood the network
-
-_SHORT_STATUS = {ProbeStatus.TIMEOUT: "timeout", ProbeStatus.UNREACHABLE: "unreach",
-                 ProbeStatus.ERROR: "error"}
+DEMO_HOSTS = ("example.com", "example.net", "example.org")  # for `tui --demo` with no hosts
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,24 +46,32 @@ def build_parser() -> argparse.ArgumentParser:
                         default=socket.AF_UNSPEC, help="IPv4 only")
     family.add_argument("-6", dest="family", action="store_const", const=socket.AF_INET6,
                         default=socket.AF_UNSPEC, help="IPv6 only")
-    common.add_argument("--report", action="store_true",
-                        help="no live display; print the table once at the end")
     common.add_argument("--demo", action="store_true",
                         help="a made-up network: no packets are sent")
+    report = argparse.ArgumentParser(add_help=False)
+    report.add_argument("--report", action="store_true",
+                        help="no live display; print the table once at the end")
 
-    ping = sub.add_parser("ping", parents=[common], help="ping one or more hosts side by side")
+    ping = sub.add_parser("ping", parents=[common, report], help="ping one or more hosts side by side")
     ping.add_argument("hosts", nargs="+")
     ping.add_argument("-c", "--count", type=int, help="stop after this many probes per host")
     ping.add_argument("--tcp", type=int, metavar="PORT",
                       help="time TCP handshakes to an open PORT instead (for hosts that filter ping)")
 
-    trace = sub.add_parser("trace", parents=[common], help="trace the route to a host, mtr-style")
+    trace = sub.add_parser("trace", parents=[common, report], help="trace the route to a host, mtr-style")
     trace.add_argument("host")
     trace.add_argument("-c", "--count", type=int, help="stop after this many rounds")
     trace.add_argument("-m", "--max-hops", type=int, default=30, help="default 30")
     trace.add_argument("-n", "--numeric", action="store_true", help="don't look up hop names")
 
-    sub.add_parser("tui", help="terminal UI (not built yet)")
+    tui = sub.add_parser("tui", parents=[common], help="terminal UI: ping and trace screens")
+    tui.add_argument("hosts", nargs="*",
+                     help="hosts to ping (more can be added from the UI; --demo has its own)")
+    tui.add_argument("--trace", action="store_true",
+                     help="start on the trace screen, tracing the first host")
+    tui.add_argument("-m", "--max-hops", type=int, default=30, help="for traces, default 30")
+    tui.add_argument("-n", "--numeric", action="store_true", help="don't look up hop names")
+
     sub.add_parser("gui", help="desktop UI (not built yet)")
     return parser
 
@@ -73,10 +79,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command in ("tui", "gui"):
-        phase = 2 if args.command == "tui" else 3
-        print(f"The {args.command.upper()} isn't built yet: it's phase {phase} of PLAN.md.",
-              file=sys.stderr)
+    if args.command == "gui":
+        print("The GUI isn't built yet: it's phase 3 of PLAN.md.", file=sys.stderr)
         return 2
     problem = _check(args)
     if problem:
@@ -95,6 +99,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (NotImplementedError, OSError) as e:
             console.print(f"[red]{e}")
             return 1
+    if args.command == "tui":
+        return _tui(args, prober, resolver)
 
     session: Session
     render: Callable[[], RenderableType]
@@ -125,14 +131,37 @@ def _check(args: argparse.Namespace) -> str | None:
         return f"interval below {MIN_INTERVAL}s is only allowed with --demo"
     if not 0 <= args.size <= MAX_PAYLOAD:
         return f"size must be between 0 and {MAX_PAYLOAD}"
-    if args.count is not None and args.count < 1:
+    if getattr(args, "count", None) is not None and args.count < 1:
         return "count must be at least 1"
     if getattr(args, "tcp", None) is not None and not 1 <= args.tcp <= 65535:
         return "TCP port must be between 1 and 65535"
     max_hops = getattr(args, "max_hops", None)
     if max_hops is not None and not 1 <= max_hops <= 255:
         return "max hops must be between 1 and 255"
+    if args.command == "tui" and args.trace and not args.hosts and not args.demo:
+        return "--trace needs a host to trace"
     return None
+
+
+def _tui(args: argparse.Namespace, prober: Prober, resolver: Resolver) -> int:
+    if importlib.util.find_spec("textual") is None:
+        print('The TUI needs Textual, the "tui" extra: pip install -e ".[tui]"', file=sys.stderr)
+        return 1
+    from ndpt.tui.app import NdptApp, Settings
+
+    settings = Settings(interval=args.interval, timeout=args.timeout, size=args.size,
+                        family=args.family, max_hops=args.max_hops, lookup_names=not args.numeric)
+    hosts = args.hosts or (list(DEMO_HOSTS) if args.demo else [])
+    app = NdptApp(prober, resolver, settings, hosts=hosts, start="trace" if args.trace else "ping")
+
+    async def run() -> None:
+        try:
+            await app.run_async()
+        finally:
+            await prober.aclose()
+
+    asyncio.run(run())
+    return app.return_code or 0
 
 
 async def _run(session: Session, prober: Prober, render: Callable[[], RenderableType],
@@ -186,10 +215,6 @@ def _number_columns(table: Table, names: Sequence[str]) -> None:
         table.add_column(name, justify="right", no_wrap=True, min_width=_NUMBER_WIDTHS.get(name, 5))
 
 
-def _host_label(name: str | None, address: str) -> str:
-    return f"{name} ({address})" if name and name != address else address
-
-
 def ping_table(session: PingSession, ascii_only: bool = False, width: int = 120) -> Table:
     numbers = ("Sent", "Loss", "Last", "Avg", "Best", "Worst", "Jitter")
     host, history = _layout(width, numbers)
@@ -204,9 +229,9 @@ def ping_table(session: PingSession, ascii_only: bool = False, width: int = 120)
             table.add_row(Text(f"{target.name}: {target.error}", style="red"))
             continue
         s = target.stats
-        label = _host_label(target.name, target.address) if target.address else target.name
-        cells = [label, str(s.sent), _loss(s.sent, s.loss_pct),
-                 _last(target.last_status, s.last, echo_only=True), fmt_ms(s.avg),
+        label = host_label(target.name, target.address) if target.address else target.name
+        cells = [label, str(s.sent), loss_cell(s.sent, s.loss_pct),
+                 last_cell(target.last_status, s.last, echo_only=True), fmt_ms(s.avg),
                  fmt_ms(s.best), fmt_ms(s.worst), fmt_ms(s.jitter) if s.received > 1 else "-"]
         if history:
             cells.append(sparkline(s.recent()[-history:], ascii_only=ascii_only))
@@ -231,8 +256,8 @@ def trace_view(session: TraceSession, ascii_only: bool = False, width: int = 120
         table.add_column("History", no_wrap=True, min_width=history)
     for hop in session.visible_hops:
         s = hop.stats
-        cells = [str(hop.ttl), _hop_host(hop.address, len(hop.responders), session),
-                 _loss(s.sent, s.loss_pct), str(s.sent), _last(hop.last_status, s.last),
+        cells = [str(hop.ttl), hop_label(hop, session),
+                 loss_cell(s.sent, s.loss_pct), str(s.sent), last_cell(hop.last_status, s.last),
                  fmt_ms(s.avg), fmt_ms(s.best), fmt_ms(s.worst), fmt_ms(s.stdev)]
         if history:
             cells.append(sparkline(s.recent()[-history:], ascii_only=ascii_only))
@@ -241,28 +266,3 @@ def trace_view(session: TraceSession, ascii_only: bool = False, width: int = 120
     parts += [Text(f"note: {note}", style="yellow") for note in session.notes()]
     parts += [Text(f"- {event}", style="dim") for event in session.events[-3:]]
     return Group(*parts)
-
-
-def _hop_host(address: str | None, responders: int, session: TraceSession) -> Text | str:
-    if address is None:
-        return Text("???", style="dim")
-    name = session.resolver.cached(address) if session.lookup_names else None
-    label = _host_label(name, address)
-    if responders > 1:
-        label += f" +{responders - 1}"
-    return label
-
-
-def _loss(sent: int, pct: float) -> Text | str:
-    return Text(f"{pct:.1f}%", style=loss_style(pct)) if sent else "-"
-
-
-def _last(status: ProbeStatus | None, last_rtt: float | None, echo_only: bool = False) -> Text | str:
-    """The latest probe: its time if it was answered, else what happened to it.
-
-    A ping only counts an echo reply; a trace hop counts any answer."""
-    if status is None:
-        return "-"
-    if status is ProbeStatus.REPLY or (status.answered and not echo_only):
-        return fmt_ms(last_rtt)
-    return Text(_SHORT_STATUS.get(status, status.value), style="red")

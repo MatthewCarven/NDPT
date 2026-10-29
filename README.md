@@ -1,15 +1,17 @@
 # NDPT: Network Diagnostics & Performance Testing
 
-Ping hosts and trace routes, live. One engine, with three front ends planned:
-a command line (built), a terminal UI and a desktop GUI (next). See
+Ping hosts and trace routes, live. One engine, with three front ends: a
+command line and a terminal UI (built), and a desktop GUI (next). See
 [PLAN.md](PLAN.md) for the design and the phases.
 
 ## Setup
 
 ```
 py -3.14 -m venv .venv
-.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m pip install -e ".[dev,tui]"
 ```
+
+The `tui` extra is Textual (pinned at 8.2.8); the command line works without it.
 
 ## Use
 
@@ -21,6 +23,31 @@ py -3.14 -m venv .venv
 ```
 
 Both commands update a table in place until Ctrl+C, then print the final table.
+
+### Terminal UI
+
+```
+.venv\Scripts\python -m ndpt tui 1.1.1.1 example.com    ping screen: these hosts side by side
+.venv\Scripts\python -m ndpt tui --trace 1.1.1.1        start on the trace screen
+.venv\Scripts\python -m ndpt tui --demo                 a made-up network, with three made-up hosts
+```
+
+The ping screen has a line per host (a sparkline as wide as the window, then
+last, average and loss) and a table of every number below it. The trace
+screen is an mtr-style table with a sparkline per hop, and notes under it on
+reading the trace (see below). Both keep running while the other is on show.
+
+| Key | Ping screen | Trace screen |
+|---|---|---|
+| `p` / `t` | switch to the ping / trace screen | |
+| `a` | add hosts (several, separated by spaces) | trace another host |
+| `Enter` | trace the highlighted host | latency history of the highlighted hop |
+| `h` | latency history of the highlighted host | |
+| `d` / `Delete` | stop pinging the highlighted host | |
+| `space` | pause / resume this screen's probes | pause / resume |
+| `q` / `Ctrl+C` | quit | quit |
+
+`-i`, `-W`, `-s`, `-4`/`-6`, `-m` and `-n` work as for `ping` and `trace`.
 
 | Option | |
 |---|---|
@@ -63,8 +90,9 @@ that's never routed). Everything else runs on a scripted fake prober.
 
 ```
 ndpt/
-  cli.py  textviz.py         command line, text sparklines
+  cli.py  textviz.py         command line, text sparklines and cells
   core/   models.py stats.py session.py ping.py trace.py resolve.py runner.py
     backends/  win_icmp.py tcp.py fake.py
-tests/
+  tui/    app.py ping_screen.py trace_screen.py widgets.py
+tests/                       test_tui.py drives the TUI headless (Textual's pilot)
 ```

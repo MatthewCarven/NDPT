@@ -70,6 +70,10 @@ class TraceSession(Session):
         next_at = loop.time()
         try:
             while not self.stopping:
+                if self.paused:
+                    if await self._hold():
+                        break
+                    next_at = loop.time()
                 self.round += 1
                 round_no = self.round
                 ttl = 1
@@ -89,7 +93,7 @@ class TraceSession(Session):
             if self._lookups and not self.stopping:
                 await asyncio.wait(self._lookups, timeout=self.timeout)  # let hop names land
         finally:
-            for task in self._lookups:
+            for task in (*inflight, *self._lookups):  # only still running if run() was cancelled
                 task.cancel()
 
     def notes(self, min_samples: int = 10) -> list[str]:

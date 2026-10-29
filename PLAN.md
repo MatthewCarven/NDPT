@@ -1,6 +1,7 @@
 # NDPT — Network Diagnostics & Performance Testing: plan
 
-2026-10-29. Status: **phase 1 (engine + CLI) done 2026-10-29**; phase 2 (TUI) next.
+2026-10-29. Status: **phase 1 (engine + CLI) done 2026-10-29; phase 2 (TUI) done
+2026-10-30**; phase 3 (GUI) next.
 See WORKLOG.md for what was built and checked, and TODO.md for what's left.
 
 ## Goal
@@ -39,7 +40,8 @@ TUI. Both front ends share one engine. A plain CLI comes along for free.
 | Tests | pytest + pytest-asyncio; Textual's `run_test()` pilot; Qt offscreen platform | Everything runs headless and without network access (see fake prober) | — |
 
 The global Textual 0.71.0 is old. NDPT gets its own `.venv` with current, pinned
-releases, so other projects using the global packages are unaffected.
+releases, so other projects using the global packages are unaffected. (Phase 2
+pinned Textual 8.2.8.)
 
 ## Architecture
 
@@ -92,6 +94,8 @@ tests all run without a network.
 - *Trace screen*: MTR-style table with an inline sparkline column per hop.
   Enter on a hop opens its latency history.
 - Keys: `p` ping, `t` trace, `a` add target, `space` pause, `e` export, `q` quit.
+  *(As built: also `Enter` on a host to trace it, `h` for a host's history, `d` to
+  drop a host. `e` waits for phase 4's export formats.)*
 
 **CLI**: `python -m ndpt ping 1.1.1.1 example.com`, `python -m ndpt trace 1.1.1.1`,
 `python -m ndpt gui`, `python -m ndpt tui`. The text output doubles as a test

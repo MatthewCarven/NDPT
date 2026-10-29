@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from ndpt.core.backends.fake import DemoResolver, FakeHop, FakeProber, demo_route
@@ -134,3 +136,33 @@ def test_a_tcp_prober_cannot_trace():
 def test_demo_routes_are_stable_and_end_at_the_destination():
     assert demo_route(DEST) == demo_route(DEST)
     assert demo_route(DEST)[-1].address == DEST
+
+
+async def test_pause_holds_the_rounds_until_resumed():
+    session = TraceSession(DEST, FakeProber({DEST: five_hops()}), interval=0.02, timeout=0.5,
+                           stagger=0.0, lookup_names=False)
+    task = asyncio.create_task(session.run())
+    await asyncio.sleep(0.07)
+    session.pause()
+    await asyncio.sleep(0.03)
+    rounds = session.round
+    await asyncio.sleep(0.1)
+    assert session.round == rounds
+    session.resume()
+    await asyncio.sleep(0.07)
+    assert session.round > rounds
+    session.stop()
+    await asyncio.wait_for(task, 1.0)
+
+
+async def test_cancelling_run_drops_the_probes_in_flight():
+    route = [FakeHop("192.168.1.1", 100.0), FakeHop(DEST, 100.0)]
+    session = TraceSession(DEST, FakeProber({DEST: route}, time_scale=1.0), interval=0.01,
+                           timeout=1.0, stagger=0.0, lookup_names=False)
+    task = asyncio.create_task(session.run())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    await asyncio.sleep(0.15)
+    assert all(hop.stats.sent == 0 for hop in session.hops)

@@ -23,8 +23,8 @@ class Session:
     - read its state (targets / hops and their stats) on their own refresh timer;
     - add a listener to hear each result as it lands (called on the session's loop).
 
-    `stop()` must be called on the session's own loop; from another thread use
-    `loop.call_soon_threadsafe(session.stop)`.
+    `stop()`, `pause()` and `resume()` must be called on the session's own loop;
+    from another thread use `loop.call_soon_threadsafe(session.stop)`.
     """
 
     def __init__(self, prober: Prober, *, resolver: Resolver | None, family: int,
@@ -43,13 +43,37 @@ class Session:
         self.size = size
         self.window = window
         self._stop = asyncio.Event()
+        self._resumed = asyncio.Event()
+        self._resumed.set()
 
     @property
     def stopping(self) -> bool:
         return self._stop.is_set()
 
+    @property
+    def paused(self) -> bool:
+        return not self._resumed.is_set()
+
     def stop(self) -> None:
         self._stop.set()
+        self._resumed.set()  # wake anything held by pause()
+
+    def pause(self) -> None:
+        """Send nothing more until resume(). Answers already on their way still land."""
+        if not self._stop.is_set():
+            self._resumed.clear()
+
+    def resume(self) -> None:
+        self._resumed.set()
+
+    async def _hold(self) -> bool:
+        """Wait while paused. True if a stop was asked for meanwhile.
+
+        Callers take their beat up again from the moment they resume, so a
+        long pause isn't followed by a burst of catching up.
+        """
+        await self._resumed.wait()
+        return self._stop.is_set()
 
     async def _sleep(self, delay: float) -> bool:
         """Wait up to `delay` seconds. True if a stop was asked for meanwhile.

@@ -1,7 +1,7 @@
 import pytest
 
 from ndpt.cli import main
-from ndpt.textviz import fmt_ms, sparkline
+from ndpt.textviz import bar_chart, fmt_ms, sparkline
 from tests.helpers import windows_only
 
 
@@ -32,8 +32,7 @@ def test_refuses_fast_intervals_on_a_real_network(capsys):
     assert "only allowed with --demo" in capsys.readouterr().err
 
 
-def test_tui_and_gui_say_they_are_not_built_yet(capsys):
-    assert main(["tui"]) == 2
+def test_gui_says_it_is_not_built_yet(capsys):
     assert main(["gui"]) == 2
 
 
@@ -49,6 +48,15 @@ def test_sparkline_scales_from_zero_and_marks_losses():
     assert sparkline([0.0, 5.0, 10.0, None]) == "▁▅█×"
     assert sparkline([0.0, 5.0, 10.0, None], ascii_only=True) == "_=#x"
     assert sparkline([]) == ""
+
+
+def test_bar_chart_rises_from_zero_in_eighths_and_marks_losses():
+    assert bar_chart([8.0, 4.0, 1.0, None, 0.0], height=2) == [
+        "█    ",
+        "██▂×▁",  # 1 ms is a quarter row; a zero still gets a sliver
+    ]
+    assert bar_chart([2.0], height=1, top=4.0) == ["▄"]
+    assert bar_chart([], height=3) == ["", "", ""]
 
 
 @pytest.mark.parametrize("value, text", [(None, "-"), (0.6123, "0.61"), (12.34, "12.3"), (123.4, "123")])
