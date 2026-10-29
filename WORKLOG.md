@@ -53,6 +53,23 @@ tasks that never ran. `Session._sleep` now always yields.
 Windows `ping` agreed. On 10.243.197.219 (the phone tether) it's sub-millisecond.
 That led to the TODO item for a `--source` option.
 
+## 2026-10-30: the no-admin check is parked
+
+Matthew can't run the check: every account on his laptop is an admin, and he
+can't create a standard one. The registry shows why nothing un-elevated exists
+there: **UAC is off** (`EnableLUA = 0`), so every process gets the full admin
+token. That explains why `runas /trustlevel` did nothing.
+
+I tried once to fake a non-elevated process: a restricted copy of the
+session's token (Administrators deny-only, no privileges, Medium integrity),
+launched with `CreateProcessAsUserW`. The launch succeeds, but the child dies
+with `0xC0000142` (DLL init failed) before running any code, both as `cmd.exe`
+and as a detached `python.exe`. I stopped there rather than dig into the
+token's permissions. The control did work: this session can open a raw ICMP
+socket, which an un-elevated process can't. TODO.md now lists the check under
+"Waiting on another machine", with that socket test to prove the terminal
+there really is un-elevated.
+
 ## 2026-10-30: phase 2 (TUI)
 
 A side session, started from the planning session, built the Textual TUI.
@@ -101,25 +118,8 @@ A side session, started from the planning session, built the Textual TUI.
   Ctrl+C quits cleanly, with no traceback.
 - **Not checked:** keys in a real terminal. The Terminal panel can't be typed
   into from here, so keys were only tested through the pilot. On Matthew's list
-  in TODO.md, with the no-admin check.
+  in TODO.md.
 
 **Gotchas** (in CLAUDE.md too): Textual sets `is_mounted` only after `on_mount`
 returns; DataTable keeps Enter for itself unless a screen binding has
 `priority=True`.
-
-## 2026-10-30: the no-admin check is parked
-
-Matthew can't run the check: every account on his laptop is an admin, and he
-can't create a standard one. The registry shows why nothing un-elevated exists
-there: **UAC is off** (`EnableLUA = 0`), so every process gets the full admin
-token. That explains why `runas /trustlevel` did nothing.
-
-I tried once to fake a non-elevated process: a restricted copy of the
-session's token (Administrators deny-only, no privileges, Medium integrity),
-launched with `CreateProcessAsUserW`. The launch succeeds, but the child dies
-with `0xC0000142` (DLL init failed) before running any code, both as `cmd.exe`
-and as a detached `python.exe`. I stopped there rather than dig into the
-token's permissions. The control did work: this session can open a raw ICMP
-socket, which an un-elevated process can't. TODO.md now lists the check under
-"Waiting on another machine", with that socket test to prove the terminal
-there really is un-elevated.
