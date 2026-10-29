@@ -2,12 +2,21 @@
 
 ## For Matthew
 
-- [ ] **Run NDPT from a normal (non-admin) terminal** to confirm it works without
-      Administrator rights. Claude's session is elevated and can't drop its rights
-      (`runas /trustlevel` fails silently there):
+- [ ] Push `main` (origin is set).
+
+## Waiting on another machine
+
+- [ ] **Confirm NDPT works without Administrator rights.** It can't be tested on Matthew's
+      laptop: UAC is off there (`EnableLUA = 0`), so every process runs elevated, and every
+      account there is an admin. A restricted-token launch from Claude's session dies at
+      start-up (`0xC0000142`), so that route is out too. Needs one of: another PC, someone
+      else's PC, a VM (VirtualBox; Windows Home has no Hyper-V or Windows Sandbox), or UAC
+      turned on. On that machine, from a normal (not "Run as administrator") terminal:
       `.venv\Scripts\python -m ndpt ping -c 3 127.0.0.1 1.1.1.1`, then
       `.venv\Scripts\python -m ndpt trace -c 3 1.1.1.1`.
-- [ ] Push `main` (origin is set).
+      To prove the terminal really is un-elevated, this should fail with WinError 10013:
+      `python -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)"`.
+      Windows' own `ping` and `tracert` use the same API without admin, so a failure would be a surprise.
 
 ## Phase 2: TUI (Textual)
 

@@ -52,3 +52,20 @@ tasks that never ran. `Session._sleep` now always yields.
 10.0.0.138 (Wi-Fi) around 20:20, the first hop varied from 3 to 157 ms, and
 Windows `ping` agreed. On 10.243.197.219 (the phone tether) it's sub-millisecond.
 That led to the TODO item for a `--source` option.
+
+## 2026-10-30: the no-admin check is parked
+
+Matthew can't run the check: every account on his laptop is an admin, and he
+can't create a standard one. The registry shows why nothing un-elevated exists
+there: **UAC is off** (`EnableLUA = 0`), so every process gets the full admin
+token. That explains why `runas /trustlevel` did nothing.
+
+I tried once to fake a non-elevated process: a restricted copy of the
+session's token (Administrators deny-only, no privileges, Medium integrity),
+launched with `CreateProcessAsUserW`. The launch succeeds, but the child dies
+with `0xC0000142` (DLL init failed) before running any code, both as `cmd.exe`
+and as a detached `python.exe`. I stopped there rather than dig into the
+token's permissions. The control did work: this session can open a raw ICMP
+socket, which an un-elevated process can't. TODO.md now lists the check under
+"Waiting on another machine", with that socket test to prove the terminal
+there really is un-elevated.
