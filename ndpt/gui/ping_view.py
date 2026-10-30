@@ -101,6 +101,7 @@ class PingView(QWidget):
         self.chart.span = max(10.0, 120 * self.settings.interval)  # the last 120 probes or so
         self.runner = self.engine.ping(self.names, self.settings)
         self.runner.updated.connect(self._show)
+        self.runner.start()
         self.pause_button.setChecked(False)
 
     def stop(self) -> None:

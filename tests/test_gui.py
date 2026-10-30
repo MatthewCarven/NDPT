@@ -93,6 +93,7 @@ def test_snapshots_arrive_on_the_qt_thread(qapp):
     try:
         runner = engine.ping(["example.com"], FAST)
         runner.updated.connect(catcher.take)
+        runner.start()
         until(lambda: seen and seen[-1][1].targets[0].stats.received >= 3)
         assert all(on_qt_thread for on_qt_thread, _ in seen)
     finally:
@@ -376,3 +377,19 @@ def test_a_lost_probe_is_marked_in_the_gap_of_its_own_line():
     assert lost_ticks([(1, None), (2, 8.0), (3, None), (4, None), (5, 12.0), (6, None)]) == \
         [(1, 8.0), (3, 8.0), (4, 8.0), (6, 12.0)]
     assert lost_ticks([(1, None), (2, None)]) == [(1, 0.0), (2, 0.0)]  # never answered: the baseline
+
+
+def test_a_runner_waits_for_start_so_a_session_that_fails_at_once_is_still_heard(qapp):
+    engine = Engine(FakeProber(route_factory=demo_route), StubResolver(), refresh=REFRESH)
+    heard = []
+    try:
+        runner = engine.trace("no.such.host", FAST)  # fails the moment it runs
+        spin(0.2)
+        assert not engine.runners  # not started: connect first
+        runner.updated.connect(lambda r, snapshot: heard.append(snapshot.error))
+        runner.finished.connect(lambda r: heard.append("finished"))
+        runner.start()
+        until(lambda: "finished" in heard)
+        assert "can't resolve no.such.host" in heard[0]
+    finally:
+        engine.shutdown()

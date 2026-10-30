@@ -128,6 +128,7 @@ class TraceView(QWidget):
         self.runner.updated.connect(self._show)
         self.runner.event.connect(self._event)
         self.runner.finished.connect(self._finished)
+        self.runner.start()
         self.status.setText(f"tracing {host}...")
         self._buttons()
         return True

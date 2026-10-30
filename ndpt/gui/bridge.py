@@ -157,13 +157,15 @@ class Engine:
         self.runners: set[Runner] = set()  # started and not yet finished
         self.closed = False
 
+    # ping() and trace() hand back a runner that hasn't started: connect its signals, then
+    # start() it. A session can finish at once (a name that won't resolve), and a signal
+    # emitted before anyone is connected is lost.
+
     def ping(self, hosts: list[str], settings: Settings) -> PingRunner:
         session = PingSession(hosts, self.prober, resolver=self.resolver, family=settings.family,
                               interval=settings.interval, timeout=settings.timeout,
                               size=settings.size, until_stopped=True)
-        runner = PingRunner(self, session)
-        runner.start()
-        return runner
+        return PingRunner(self, session)
 
     def trace(self, host: str, settings: Settings) -> TraceRunner:
         """Raises ValueError if the prober can't trace (TCP)."""
@@ -171,9 +173,7 @@ class Engine:
                                max_hops=settings.max_hops, interval=settings.interval,
                                timeout=settings.timeout, size=settings.size,
                                lookup_names=settings.lookup_names)
-        runner = TraceRunner(self, session)
-        runner.start()
-        return runner
+        return TraceRunner(self, session)
 
     def swap_prober(self, prober: Prober) -> None:
         """New sessions use `prober`. Stop the old sessions first: the old prober closes after them."""
