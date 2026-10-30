@@ -104,6 +104,8 @@ class Carried:
 
     loss_pct: float | None
     avg: float | None
+    loss_stops_here: bool = False  # the hop shows more loss than carries on
+    slow_to_reply: bool = False    # its average is well over what carries on (as TraceSession.notes)
 
 
 def carried_on(hops: Sequence[HopSnapshot]) -> list[Carried]:
@@ -124,5 +126,6 @@ def carried_on(hops: Sequence[HopSnapshot]) -> list[Carried]:
             continue
         loss = s.loss_pct if loss is None else min(loss, s.loss_pct)
         avg = s.avg if avg is None else min(avg, s.avg)
-        carried.append(Carried(loss, avg))
+        carried.append(Carried(loss, avg, s.loss_pct > loss,
+                               s.avg >= avg + 10 and s.avg >= avg * 1.5))
     return carried[::-1]

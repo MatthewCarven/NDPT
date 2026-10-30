@@ -1,4 +1,4 @@
-"""The pyqtgraph charts: live latency and the latency histogram."""
+"""The pyqtgraph charts: live latency, the latency histogram, and latency per hop."""
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ from collections.abc import Hashable, Sequence
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Signal
 
+from ndpt.core.snapshot import Carried, HopSnapshot
 from ndpt.gui.theme import Theme
 
 SCROLL_MS = 100  # how often a live chart moves along
@@ -141,3 +142,64 @@ class HistogramChart(pg.PlotWidget):
                           pen=pg.mkPen(colour, width=2), brush=self.theme.qcolor(colour, 30))
         self.setXRange(edges[0], edges[-1], padding=0.02)
         self.setYRange(0, max(1, top) * 1.15, padding=0)
+
+
+class HopChart(pg.PlotWidget):
+    """Each hop's average round trip as a bar, its best to worst as a whisker, and a line
+    for the latency that carries on to the hops after it.
+
+    The bar of a hop that's slow only to reply (see `carried_on`) is drawn faint:
+    its height is how that router answers traceroute, not what it does to
+    traffic. The line is what does carry on. Clicking a bar selects that hop.
+    """
+
+    hop_clicked = Signal(int)
+
+    def __init__(self, theme: Theme) -> None:
+        super().__init__(background=theme.surface)
+        self.theme = theme
+        style(self, theme, "per-hop latency: bar = average, whisker = best to worst, "
+                           "line = what carries on", "ms", "hop")
+        self.bars = pg.BarGraphItem(x=[], height=[], width=0.6)
+        self.whiskers = pg.ErrorBarItem(x=np.zeros(0), y=np.zeros(0), beam=0.2,
+                                        pen=pg.mkPen(theme.secondary, width=1))
+        self.carried = pg.PlotDataItem(pen=pg.mkPen(theme.ink, width=2), symbol="o", symbolSize=8,
+                                       symbolBrush=pg.mkBrush(theme.ink),
+                                       symbolPen=pg.mkPen(theme.surface, width=2))
+        for item in (self.bars, self.whiskers, self.carried):
+            self.addItem(item)
+        self.ttls: list[int] = []
+        self.scene().sigMouseClicked.connect(self._clicked)
+
+    def set_hops(self, hops: Sequence[HopSnapshot], carried: Sequence[Carried],
+                 dest_ttl: int | None, selected: int | None = None) -> None:
+        shown = [(h, c) for h, c in zip(hops, carried) if h.stats.received]
+        self.ttls = [h.ttl for h in hops]
+        self.getPlotItem().getAxis("bottom").setTicks([[(t, str(t)) for t in self.ttls]])
+        if not shown:
+            self.bars.setOpts(x=[], height=[])
+            self.whiskers.setData(x=np.zeros(0), y=np.zeros(0))
+            self.carried.setData([], [])
+            return
+        x = np.array([h.ttl for h, _ in shown], float)
+        avg = np.array([h.stats.avg for h, _ in shown])
+        best = np.array([h.stats.best for h, _ in shown])
+        worst = np.array([h.stats.worst for h, _ in shown])
+        brushes = [self.theme.series[0] if h.ttl == dest_ttl
+                   else self.theme.bar_faint if c.slow_to_reply else self.theme.bar
+                   for h, c in shown]
+        pens = [pg.mkPen(self.theme.ink, width=2) if h.ttl == selected else pg.mkPen(None)
+                for h, _ in shown]
+        self.bars.setOpts(x=x, height=avg, width=0.6, brushes=brushes, pens=pens)
+        self.whiskers.setData(x=x, y=avg, top=worst - avg, bottom=avg - best)
+        self.carried.setData(x, [c.avg for _, c in shown])
+        self.setXRange(0.4, max(self.ttls) + 0.6, padding=0)
+        self.setYRange(0, top_of(list(worst)), padding=0)
+
+    def _clicked(self, event) -> None:
+        if not self.ttls:
+            return
+        point = self.getPlotItem().vb.mapSceneToView(event.scenePos())
+        ttl = round(point.x())
+        if ttl in self.ttls and abs(point.x() - ttl) <= 0.4:
+            self.hop_clicked.emit(ttl)

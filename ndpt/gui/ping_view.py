@@ -218,10 +218,9 @@ class PingView(QWidget):
             set_cell(table, row, 0, target_label(target), number=False, icon=icon)
             s = target.stats
             loss = f"{s.loss_pct:.1f}%" if s.sent else "-"
-            cells = [str(s.sent), loss, last_text(target.last_status, s.last, echo_only=True),
-                     fmt_ms(s.avg), fmt_ms(s.best), fmt_ms(s.worst), fmt_ms(s.stdev),
-                     fmt_ms(s.jitter), fmt_ms(s.p95)]
-            for column, text in enumerate(cells, start=1):
+            set_cell(table, row, 2, loss, icon=dot(self.theme.loss_colour(s.loss_pct)) if s.sent else None)
+            cells = {1: str(s.sent), 3: last_text(target.last_status, s.last, echo_only=True),
+                     4: fmt_ms(s.avg), 5: fmt_ms(s.best), 6: fmt_ms(s.worst), 7: fmt_ms(s.stdev),
+                     8: fmt_ms(s.jitter), 9: fmt_ms(s.p95)}
+            for column, text in cells.items():
                 set_cell(table, row, column, text)
-            if s.sent:
-                set_cell(table, row, 2, loss, icon=dot(self.theme.loss_colour(s.loss_pct)))

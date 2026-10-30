@@ -72,6 +72,8 @@ def test_loss_and_delay_that_stop_at_a_hop_dont_carry_on():
     carried = carried_on(hops)
     assert [c.loss_pct for c in carried] == [0.0, 10.0, None, 10.0]
     assert [c.avg for c in carried] == [1.0, 12.0, None, 12.0]
+    assert [c.loss_stops_here for c in carried] == [False, True, False, False]
+    assert [c.slow_to_reply for c in carried] == [False, True, False, False]
 
 
 def test_what_carries_on_is_never_more_than_the_hop_shows():

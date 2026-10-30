@@ -23,8 +23,8 @@ def prober_for(settings: Settings, demo: bool) -> Prober:
     return make_prober(settings.protocol, port=settings.port)
 
 
-def build(settings: Settings, *, hosts: Sequence[str] = (), demo: bool = False,
-          make: Callable[[Settings, bool], Prober] = prober_for,
+def build(settings: Settings, *, hosts: Sequence[str] = (), trace: str | None = None,
+          demo: bool = False, make: Callable[[Settings, bool], Prober] = prober_for,
           resolver: Resolver | None = None, refresh: float | None = None) -> MainWindow:
     """The window, with its engine running. Needs a QApplication first."""
     pg.setConfigOptions(antialias=True)
@@ -32,13 +32,14 @@ def build(settings: Settings, *, hosts: Sequence[str] = (), demo: bool = False,
     resolver = resolver or (DemoResolver() if demo else Resolver())
     engine = Engine(make(settings, demo), resolver,
                     **({"refresh": refresh} if refresh is not None else {}))
-    return MainWindow(engine, settings, theme, hosts=hosts, demo=demo, make=make)
+    return MainWindow(engine, settings, theme, hosts=hosts, trace=trace, demo=demo, make=make)
 
 
-def run(settings: Settings, *, hosts: Sequence[str] = (), demo: bool = False) -> int:
+def run(settings: Settings, *, hosts: Sequence[str] = (), trace: str | None = None,
+        demo: bool = False) -> int:
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("NDPT")
-    window = build(settings, hosts=hosts, demo=demo)
+    window = build(settings, hosts=hosts, trace=trace, demo=demo)
     window.show()
     try:
         return app.exec()

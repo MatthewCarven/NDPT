@@ -14,6 +14,8 @@ from ndpt.textviz import fmt_ms
 
 _SHORT_STATUS = {ProbeStatus.TIMEOUT: "timeout", ProbeStatus.UNREACHABLE: "unreach",
                  ProbeStatus.ERROR: "error"}
+ICON_KEY = Qt.ItemDataRole.UserRole + 1    # which icon a cell has (see set_cell)
+COLOUR_KEY = Qt.ItemDataRole.UserRole + 2  # which text colour
 
 
 @functools.cache
@@ -70,18 +72,29 @@ def number_table(columns: Sequence[str], stretch: int = 0) -> QTableWidget:
 
 def set_cell(table: QTableWidget, row: int, column: int, text: str, *, number: bool = True,
              icon: QIcon | None = None, tooltip: str = "", colour: str | None = None) -> None:
-    """Fill one cell, reusing its item: rebuilding items would lose the selection."""
+    """Fill one cell, reusing its item (new items would lose the selection).
+
+    Only what changed is set: setting an icon costs ~0.4 ms even when it's the
+    same one, which made an 11-hop table take 100 ms to refresh. Icons come
+    from `swatch` and `dot`, which are cached, so the same icon is the same object.
+    """
     item = table.item(row, column)
     if item is None:
         item = QTableWidgetItem()
+        item.setTextAlignment((Qt.AlignmentFlag.AlignRight if number else Qt.AlignmentFlag.AlignLeft)
+                              | Qt.AlignmentFlag.AlignVCenter)
         table.setItem(row, column, item)
     if item.text() != text:
         item.setText(text)
-    item.setTextAlignment((Qt.AlignmentFlag.AlignRight if number else Qt.AlignmentFlag.AlignLeft)
-                          | Qt.AlignmentFlag.AlignVCenter)
-    item.setIcon(icon if icon is not None else QIcon())
-    item.setToolTip(tooltip)
-    item.setData(Qt.ItemDataRole.ForegroundRole, QColor(colour) if colour else None)
+    icon_key = id(icon) if icon is not None else 0
+    if item.data(ICON_KEY) != icon_key:
+        item.setIcon(icon if icon is not None else QIcon())
+        item.setData(ICON_KEY, icon_key)
+    if item.toolTip() != tooltip:
+        item.setToolTip(tooltip)
+    if item.data(COLOUR_KEY) != colour:
+        item.setData(Qt.ItemDataRole.ForegroundRole, QColor(colour) if colour else None)
+        item.setData(COLOUR_KEY, colour)
 
 
 def last_text(status: ProbeStatus | None, rtt: float | None, echo_only: bool = False) -> str:
