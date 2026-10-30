@@ -15,13 +15,6 @@
       `python -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)"`.
       Windows' own `ping` and `tracert` use the same API without admin, so a failure would be a surprise.
 
-## For Matthew
-
-- [ ] **Try the TUI's keys in Windows Terminal.** Claude saw both screens run live in the
-      Terminal panel, but can't type into it: every key was tested headlessly (Textual's pilot)
-      only. Double-click `starttui.cmd` (or `starttui --demo`), then `a`, `Enter`, `t`, `p`,
-      `h`, `d`, space, `q`.
-
 ## Phase 2: TUI (Textual), done 2026-10-30
 
 - [x] Pin a current Textual in pyproject's `tui` extra and install it into `.venv`

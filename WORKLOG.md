@@ -134,3 +134,8 @@ stays open to show it, and it keeps the exit code. Checked: `--demo` live in the
 Terminal panel (ping, then trace), Ctrl+C back to the prompt with no pause; by
 full path from another folder (the `=` in the path is fine); a bad argument
 (pause, exit 2); and a copy with no `.venv` beside it (message, exit 1).
+
+**Keys checked in Windows Terminal** (Matthew, same day): "works flawlessly". His
+screenshots show a real trace to www.google.com.au (10 hops; hops 5 and 6
+silent), a hop's history opened with Enter, and space pausing at round 56. That
+closes the one thing phase 2 couldn't check from here.
