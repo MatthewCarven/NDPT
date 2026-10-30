@@ -139,3 +139,77 @@ full path from another folder (the `=` in the path is fine); a bad argument
 screenshots show a real trace to www.google.com.au (10 hops; hops 5 and 6
 silent), a hop's history opened with Enter, and space pausing at round 56. That
 closes the one thing phase 2 couldn't check from here.
+
+## 2026-10-30: phase 3 (GUI)
+
+A side session, started from the planning session, built the PySide6 + pyqtgraph GUI
+in three commits (709c8c9, 04a5d39, 34d9991, and the docs after).
+
+**Built:**
+- PySide6-Essentials 6.12.0 and pyqtgraph 0.14.0 pinned in the `gui` extra and installed
+  into `.venv` (with numpy 2.5.4). Essentials is PySide6 without its add-ons (WebEngine and
+  the rest), which NDPT doesn't use. The global PySide6 6.11.1 and pyqtgraph are untouched.
+- `core/snapshot.py`: frozen copies of a session's state, built by the new
+  `PingSession.snapshot()` / `TraceSession.snapshot()` on the session's own loop.
+  `carried_on()` works out how much of each hop's loss and latency carries on to the hops
+  after it, and flags a hop whose loss stops there or that's slow only to reply (the same
+  test as `notes()`).
+- `gui/bridge.py`: `Engine` runs sessions on `core.runner.LoopThread`. Each `Runner` posts a
+  snapshot to the Qt thread through a signal, at most every 0.25 s and only when there's
+  news; `add`/`remove`/`pause`/`stop` run on the loop. The Qt thread never reads a live
+  session. Closing hides the window, stops the sessions, closes the prober and stops the loop.
+- Ping tab: a host list (add several at once, remove, pause, trace the selected host), a
+  scrolling latency chart on a clock axis (a colour per host; a lost probe is a gap in its
+  line with a red tick in the gap), a table of every number, and a latency histogram.
+- Trace tab: Start/Stop and Pause, the mtr table, the engine's notes and path events (route
+  changes after round 1 also go to the status bar), a per-hop bar chart (average, best to
+  worst, and a line for what carries on), the selected hop's latency over time (the
+  destination until another is chosen), and the route diagram (`QGraphicsView`): hops left to
+  right, nodes coloured by the loss that carries on, edges by the latency added on that link
+  (a blue ramp), each router of a load-balanced hop drawn, a silent hop dashed. Clicking a
+  router or a bar selects its hop.
+- Honest graphs: a hop's own loss and average still show, but where they don't carry on they
+  are grey, with a hollow dot and a faint bar, and the node is coloured as the path is. Only
+  the destination's numbers are taken as they come.
+- Settings tab: interval, timeout, payload, max hops, IPv4/IPv6, ICMP or TCP with a port,
+  name lookups. Apply restarts both tabs; a protocol change swaps the prober (the old one
+  closes after its sessions stop). While TCP is chosen, the trace tab says why it can't
+  trace. On the demo network the protocol is greyed out.
+- `python -m ndpt gui [hosts] [--trace] [--demo]` with the `tui` options plus `--tcp PORT`.
+- The GUI follows Windows' light or dark mode. Matthew's is dark.
+
+**Checked:**
+- 119 tests pass (91 before), five full runs in a row after the last fix: 22 GUI tests run
+  offscreen on the fake prober, waiting on conditions, including a real mouse click on the
+  route diagram (`QTest`); plus snapshot, `carried_on` and CLI tests.
+- Live, windowed, grabbed with `widget.grab()` and sent to Matthew: `--demo` (ping three
+  hosts, trace example.org), and real probes (ping 1.1.1.1, example.com and 192.0.2.1, trace
+  1.1.1.1, every 0.5 s). The link was congested: 100-900 ms, and ~25-45% loss from hop 2 on,
+  which the diagram paints red from there, while hop 1's extra loss is grey. Matthew sent a
+  grab of his own from the same run: "Looks great".
+- The window doesn't freeze: a 20 ms `QTimer` noting its longest gap read 59-76 ms at worst
+  in windowed real-probe runs, median 20 ms. `ndpt gui` through the real CLI entry point
+  closes in 3 ms on the demo, ~1 s with real probes (it waits up to 1 s on reverse-DNS
+  lookups), exit code 0.
+- **Not checked:** mouse interaction and window resizing by hand, and light mode on screen.
+  On Matthew's list in TODO.md ("For Matthew: the GUI by hand").
+
+**Found along the way:**
+- *A race in the bridge.* `Engine.trace()` started the runner before the view connected to
+  it, so a trace that failed at once (a name that won't resolve) could finish before anyone
+  was listening, leaving the tab at "tracing...". One test caught it 1 run in 10. Runners now
+  start only when told, after connecting; a test covers it.
+- *Refresh cost.* `QTableWidgetItem.setIcon` costs ~0.4 ms even for the same icon, so an
+  11-hop table took 100 ms a refresh. `set_cell` now sets only what changed: under 1 ms. A
+  hidden tab doesn't redraw either, until it's shown.
+- *`sender()` is fragile.* The views first told a current runner's snapshots from a stopped
+  one's with `QObject.sender()`, but a queued signal still arrives after `disconnect()`
+  (`sender()` None), and `sender()` is None in a wrapped slot too. My timing wrappers dropped
+  every snapshot that way, so three "no stall" windowed runs had measured an empty window.
+  The signals now carry their runner.
+- *One 2.1 s stall* of the Qt thread in the first windowed real-probe run, which had no timing
+  of NDPT's own redraws in it. The three valid runs after it, timed, didn't repeat it, and no
+  redraw or Qt event in them ran over 50 ms. And the trace redraw measured
+  30-47 ms in a real window against ~9 ms offscreen; not understood. Both in TODO.md.
+- *Lost-probe ticks* all along the bottom made a solid red comb for a host that never answers
+  (192.0.2.1), hiding everyone else's losses. Each tick now sits in the gap of its own line.

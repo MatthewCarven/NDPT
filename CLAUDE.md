@@ -32,3 +32,26 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   Sessions run on the test's loop, at `FAST` settings, on `FakeProber(time_scale=0)`.
 - **The Terminal panel can't be typed into**, so a live check sees only the screen the app
   starts on: `tui` for ping, `tui --trace HOST` for trace. Keys are tested through the pilot.
+- **GUI: PySide6-Essentials 6.12.0 and pyqtgraph 0.14.0 in `.venv`**; the global PySide6 is
+  6.11.1. Same rule as Textual: don't run the GUI with the global Python.
+- **The Qt thread never touches a live session.** Sessions run on `LoopThread`; the views get
+  snapshots (`core/snapshot.py`) through `Runner` signals, and call `add`/`pause`/`stop` on the
+  loop through the runner. `Engine.ping/trace` hand back an *unstarted* runner: connect, then
+  `start()`. A trace of a name that won't resolve finishes at once, and its signals were lost
+  1 run in 10 when the runner started first.
+- **Runner signals carry the runner first; don't use `QObject.sender()`.** A queued signal still
+  arrives after `disconnect()` (with `sender()` None), and `sender()` is also None in a
+  wrapped slot, which silently dropped every snapshot in one timing experiment.
+- **`QTableWidgetItem.setIcon` costs ~0.4 ms even for the same icon.** `widgets.set_cell` only
+  sets what changed (the icons are cached, so the same icon is the same object). Setting
+  everything every refresh made an 11-hop table take 100 ms.
+- **A hidden tab keeps its snapshots and draws them when it's shown**, from the tab widget's
+  `currentChanged`. Not from `showEvent`: that never fires in a window that was never shown,
+  as in the tests.
+- **Offscreen Qt here draws no text** (every glyph a box) unless `QT_QPA_FONTDIR=C:\Windows\Fonts`.
+  The tests don't need it; screenshots do. A windowed grab is truer still: `widget.grab().save()`
+  with `WA_ShowWithoutActivating`, so the window appears on screen without taking focus.
+- **Matthew's Windows is in dark mode**, and the GUI follows it (`gui/theme.py`). Offscreen
+  runs are always light.
+- **Time a GUI change by its redraws, not by eye**: a 20 ms `QTimer` noting its longest gap shows
+  a stalled Qt thread. Check the snapshots really arrived first: an empty window never stalls.

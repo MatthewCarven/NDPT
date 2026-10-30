@@ -1,17 +1,19 @@
 # NDPT: Network Diagnostics & Performance Testing
 
 Ping hosts and trace routes, live. One engine, with three front ends: a
-command line and a terminal UI (built), and a desktop GUI (next). See
-[PLAN.md](PLAN.md) for the design and the phases.
+command line, a terminal UI and a desktop GUI. See [PLAN.md](PLAN.md) for the
+design and the phases.
 
 ## Setup
 
 ```
 py -3.14 -m venv .venv
-.venv\Scripts\python -m pip install -e ".[dev,tui]"
+.venv\Scripts\python -m pip install -e ".[dev,tui,gui]"
 ```
 
-The `tui` extra is Textual (pinned at 8.2.8); the command line works without it.
+The `tui` extra is Textual (pinned at 8.2.8). The `gui` extra is PySide6-Essentials
+6.12.0 (PySide6 without its add-ons, which NDPT doesn't use) and pyqtgraph 0.14.0.
+The command line works without either.
 
 ## Use
 
@@ -64,6 +66,32 @@ reading the trace (see below). Both keep running while the other is on show.
 | `--demo` | fake network, for trying it out and for tests |
 | `-m N`, `-n` | trace only: max hops (default 30); don't look up hop names |
 
+### Desktop GUI
+
+```
+.venv\Scripts\python -m ndpt gui 1.1.1.1 example.com    ping tab: these hosts side by side
+.venv\Scripts\python -m ndpt gui --trace 1.1.1.1        start on the trace tab
+.venv\Scripts\python -m ndpt gui --demo                 a made-up network, with three made-up hosts
+```
+
+The same options as `tui` work, plus `--tcp PORT` to ping with TCP handshakes.
+Both tabs keep probing while the other is showing.
+
+- **Ping:** the host list (add several at once, separated by spaces; remove;
+  pause; trace the selected host), a scrolling latency chart with a colour per
+  host and lost probes as red ticks in the gaps of their own line, a table of
+  every number, and a latency histogram.
+- **Trace:** the mtr table, the engine's notes and path events, a bar per hop
+  (average, best to worst, and a line for the latency that carries on), the
+  latency over time of the selected hop, and a route diagram: hops left to
+  right, nodes coloured by the loss that carries on, edges by the latency added
+  on that link. Click a router or a bar to select its hop.
+- **Settings:** interval, timeout, payload, max hops, IPv4/IPv6, ICMP or TCP
+  with a port. Apply restarts the probes. TCP can't trace: while it's chosen,
+  the trace tab says so.
+
+The GUI follows Windows' light or dark mode.
+
 ### Reading a trace
 
 Routers answer traceroute probes as a low-priority chore, and rate-limit those
@@ -71,6 +99,11 @@ answers. A hop showing loss or high latency that the hops after it don't share
 is that router being slow to *reply*, not your traffic being dropped or
 delayed. The trace view prints a note under the table when it sees this. Only
 loss and latency that carry on to the destination are real.
+
+The GUI colours by this rule. A hop is coloured by the least loss of it and
+every hop after it that answers, and an edge by the latency added that carries
+on. A hop's own numbers still show, but in grey with a hollow dot where they
+don't carry on, so a rate-limiting router stays green while the path is.
 
 ## How it probes
 
@@ -88,7 +121,9 @@ itself as well.
 ```
 
 The network tests only probe localhost and 192.0.2.1 (a documentation address
-that's never routed). Everything else runs on a scripted fake prober.
+that's never routed). Everything else runs on a scripted fake prober. The GUI
+tests run offscreen (`QT_QPA_PLATFORM=offscreen`); they're skipped without the
+`gui` extra.
 
 ## Layout
 
@@ -96,8 +131,12 @@ that's never routed). Everything else runs on a scripted fake prober.
 ndpt/
   cli.py  textviz.py         command line, text sparklines and cells
   core/   models.py stats.py session.py ping.py trace.py resolve.py runner.py
+          snapshot.py        frozen copies of a session, for the GUI's thread
     backends/  win_icmp.py tcp.py fake.py
   tui/    app.py ping_screen.py trace_screen.py widgets.py
-tests/                       test_tui.py drives the TUI headless (Textual's pilot)
+  gui/    app.py main_window.py bridge.py ping_view.py trace_view.py
+          route_graph.py charts.py settings_view.py theme.py widgets.py
+tests/                       test_tui.py drives the TUI headless (Textual's pilot);
+                             test_gui.py the GUI offscreen
 starttui.cmd                 the TUI without activating the venv
 ```

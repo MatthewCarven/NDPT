@@ -1,7 +1,7 @@
 # NDPT — Network Diagnostics & Performance Testing: plan
 
-2026-10-29. Status: **phase 1 (engine + CLI) done 2026-10-29; phase 2 (TUI) done
-2026-10-30**; phase 3 (GUI) next.
+2026-10-29. Status: **phase 1 (engine + CLI) done 2026-10-29; phase 2 (TUI) and phase 3
+(GUI) done 2026-10-30**; phase 4 (polish) next.
 See WORKLOG.md for what was built and checked, and TODO.md for what's left.
 
 ## Goal
@@ -119,9 +119,10 @@ NDPT/
   README.md  PLAN.md  TODO.md  WORKLOG.md  CLAUDE.md
   ndpt/
     __main__.py  cli.py
-    core/      models.py  stats.py  resolve.py  ping.py  trace.py  runner.py
+    core/      models.py  stats.py  resolve.py  ping.py  trace.py  runner.py  snapshot.py
       backends/  base.py  win_icmp.py  icmplib_backend.py  tcp.py  fake.py
     gui/       app.py  main_window.py  ping_view.py  trace_view.py  route_graph.py
+               bridge.py  charts.py  settings_view.py  theme.py  widgets.py   (as built)
     tui/       app.py  ping_screen.py  trace_screen.py  widgets.py
   tests/
 ```

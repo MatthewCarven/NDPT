@@ -25,19 +25,40 @@
       moved to phase 4, with the export formats.
 - [x] Pilot tests (`App.run_test()`) on the fake prober.
 
-## Phase 3: GUI (PySide6 + pyqtgraph)
+## Phase 3: GUI (PySide6 + pyqtgraph), done 2026-10-30
 
-- [ ] Run sessions on `core.runner.LoopThread`; listeners post to the Qt thread through signals.
-- [ ] Read session state safely from the Qt thread: a `snapshot()` per session, or only
-      what arrives through signals.
-- [ ] Ping tab, trace tab, route diagram, per-hop chart (see PLAN.md). The engine already has
-      what the TUI needed: `PingSession.add/remove` (with `until_stopped=True`) and
-      `Session.pause/resume`. Both must be called on the loop thread.
-- [ ] Offscreen smoke tests (`QT_QPA_PLATFORM=offscreen`).
+- [x] Run sessions on `core.runner.LoopThread`; listeners post to the Qt thread through signals.
+- [x] Read session state safely from the Qt thread: `PingSession/TraceSession.snapshot()`,
+      built on the loop and carried by the signals (`core/snapshot.py`).
+- [x] Ping tab, trace tab, route diagram, per-hop chart (see PLAN.md), with the honest-graphs
+      rule (`carried_on()`).
+- [x] Settings tab: interval, timeout, payload, max hops, IPv4/IPv6, ICMP or TCP with a port.
+- [x] `python -m ndpt gui [hosts] [--trace] [--demo]`.
+- [x] Offscreen smoke tests (`QT_QPA_PLATFORM=offscreen`).
+
+### For Matthew: the GUI by hand
+
+Everything below was only checked offscreen or in grabs of a window nobody touched.
+
+- [ ] **Mouse:** click a router in the route diagram and a bar in the per-hop chart; each
+      should select that hop in the table and show its latency over time. Hover a router
+      for its tooltip (responders, numbers, and why grey numbers stop at that hop).
+- [ ] **Resizing:** drag the window bigger and smaller, and drag the splitters. The route
+      diagram should spread its hops out when there's room and scroll sideways when there
+      isn't; no table column should be cut short.
+- [ ] **The ping tab:** add hosts (several at once, separated by spaces), remove one, Pause and
+      Resume, and the Trace button on a selected host.
+- [ ] **Settings:** switch to TCP (port 443) and Apply: Ping keeps going, Trace says why it
+      can't. Back to ICMP, Apply, Start on the Trace tab.
+- [ ] **Closing** the window mid-trace: it should vanish at once (the process can take a few
+      more seconds to end if router-name lookups are still running).
+- [ ] **Light mode**, if you ever use it: the GUI follows Windows' setting, and every grab so
+      far was dark.
 
 ## Phase 4: Polish
 
-- [ ] CSV/JSON export, saved settings, session save/load.
+- [ ] CSV/JSON export, saved settings, session save/load. The snapshots (`core/snapshot.py`)
+      are frozen copies of everything the front ends show: a good thing to export from.
 - [ ] `e` in the TUI exports what's on screen, once the formats exist.
 - [ ] PyInstaller build.
 
@@ -66,3 +87,19 @@
       to the table alone past some count.
 - [ ] TUI: `--tcp` isn't offered (a TCP prober can't trace). The ping screen could take it,
       with the trace screen saying why it can't.
+- [ ] TUI: colour the trace screen's loss with `core.snapshot.carried_on()`, as the GUI does,
+      so a hop whose loss stops there isn't red. The TUI only has the notes today.
+- [ ] GUI: a `startgui.cmd` (with `pythonw`, so no console window), like `starttui.cmd`.
+- [ ] GUI: the trace tab's redraw measured 30-47 ms in a real window, against ~9 ms offscreen.
+      Not understood; a guess is GIL contention with the probe threads. The window stays
+      responsive (worst Qt stall 59-76 ms with real probes), and a hidden tab doesn't redraw.
+- [ ] GUI: one windowed run with real probes had a single 2.1 s stall of the Qt thread (that run
+      didn't time NDPT's redraws). Three timed runs after it didn't repeat it, and nothing in
+      them ran over 50 ms. Watch for it.
+- [ ] GUI: the route diagram scrolls sideways past ~8 hops at 1280 px. Fit to width, or wrap
+      long routes onto a second row?
+- [ ] GUI: no hover readout on the charts (a crosshair with the time and value); the tables
+      carry the numbers for now.
+- [ ] GUI: closing while router-name lookups run leaves the process alive for a few seconds:
+      Python joins the default executor's threads at exit, and Windows' reverse lookup for an
+      address with no name takes seconds.
