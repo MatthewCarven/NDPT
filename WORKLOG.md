@@ -123,3 +123,14 @@ A side session, started from the planning session, built the Textual TUI.
 **Gotchas** (in CLAUDE.md too): Textual sets `is_mounted` only after `on_mount`
 returns; DataTable keeps Enter for itself unless a screen binding has
 `priority=True`.
+
+## 2026-10-30: `starttui.cmd`
+
+Matthew asked for a launcher so nobody has to know about the venv.
+`starttui.cmd` runs `.venv\Scripts\python -m ndpt tui` with any arguments given
+to it, from any folder (ndpt is installed editable). If `.venv` is missing it
+says so; if the TUI exits with an error, it pauses so a double-clicked window
+stays open to show it, and it keeps the exit code. Checked: `--demo` live in the
+Terminal panel (ping, then trace), Ctrl+C back to the prompt with no pause; by
+full path from another folder (the `=` in the path is fine); a bad argument
+(pause, exit 2); and a copy with no `.venv` beside it (message, exit 1).

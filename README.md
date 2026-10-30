@@ -32,6 +32,10 @@ Both commands update a table in place until Ctrl+C, then print the final table.
 .venv\Scripts\python -m ndpt tui --demo                 a made-up network, with three made-up hosts
 ```
 
+Or double-click `starttui.cmd`, or run it with the same arguments
+(`starttui --trace 1.1.1.1`). It runs `.venv`'s Python, so there's no venv to
+activate first.
+
 The ping screen has a line per host (a sparkline as wide as the window, then
 last, average and loss) and a table of every number below it. The trace
 screen is an mtr-style table with a sparkline per hop, and notes under it on
@@ -95,4 +99,5 @@ ndpt/
     backends/  win_icmp.py tcp.py fake.py
   tui/    app.py ping_screen.py trace_screen.py widgets.py
 tests/                       test_tui.py drives the TUI headless (Textual's pilot)
+starttui.cmd                 the TUI without activating the venv
 ```

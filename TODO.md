@@ -19,8 +19,8 @@
 
 - [ ] **Try the TUI's keys in Windows Terminal.** Claude saw both screens run live in the
       Terminal panel, but can't type into it: every key was tested headlessly (Textual's pilot)
-      only. `.venv\Scripts\python -m ndpt tui --demo`, then `a`, `Enter`, `t`, `p`, `h`, `d`,
-      space, `q`.
+      only. Double-click `starttui.cmd` (or `starttui --demo`), then `a`, `Enter`, `t`, `p`,
+      `h`, `d`, space, `q`.
 
 ## Phase 2: TUI (Textual), done 2026-10-30
 
