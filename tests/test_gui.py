@@ -21,6 +21,13 @@ FAST = Settings(interval=0.02, timeout=0.5)
 REFRESH = 0.05  # snapshots this often, so the tests don't wait on the GUI's quarter second
 
 
+class NoTtlProber(FakeProber):
+    """Stands in for the TCP prober: answers pings, can't trace."""
+
+    name = "tcp"
+    supports_ttl = False
+
+
 @pytest.fixture(scope="module")
 def qapp():
     return QApplication.instance() or QApplication([])
@@ -52,7 +59,12 @@ def window(qapp):
         probers = [prober] if prober else []
 
         def new_prober(settings, demo):  # a fresh one each time the settings change it
-            p = probers.pop() if probers else FakeProber(route_factory=demo_route)
+            if probers:
+                p = probers.pop()
+            elif settings.protocol == "tcp":
+                p = NoTtlProber(route_factory=demo_route)
+            else:
+                p = FakeProber(route_factory=demo_route)
             made_probers.append(p)
             return p
 
@@ -74,7 +86,7 @@ def test_snapshots_arrive_on_the_qt_thread(qapp):
     seen = []
 
     class Catcher(QObject):
-        def take(self, snapshot):
+        def take(self, runner, snapshot):
             seen.append((threading.current_thread() is threading.main_thread(), snapshot))
 
     catcher = Catcher()
@@ -113,7 +125,7 @@ def test_lost_probes_show_as_red_ticks_and_count_as_loss(window):
     s = view.snapshot.targets[0].stats
     assert s.lost >= 3 and 40 <= s.loss_pct <= 60  # every other probe
     assert len(view.chart.lost.data) == s.lost
-    assert set(view.chart.lost.data["y"]) == {0.0}  # along the bottom
+    assert set(view.chart.lost.data["y"]) == {5.0}  # in the gaps of its own line
     assert view.table.item(0, 2).text() == f"{s.loss_pct:.1f}%"
 
 
@@ -276,3 +288,91 @@ def test_a_route_change_after_the_first_round_reaches_the_status_bar(window):
     w, view = traced(window, route)
     until(lambda: "also answered by 192.0.2.3" in w.statusBar().currentMessage())
     assert w.statusBar().currentMessage().startswith("route change: hop 2:")
+
+
+# --- the settings tab ---
+
+
+def test_apply_restarts_both_tabs_with_the_new_settings(window):
+    w = window(hosts=("example.com",), trace="example.net")
+    until(lambda: w.ping_view.snapshot and w.trace_view.snapshot)
+    form = w.settings_view
+    form.interval.setValue(0.2)  # real probes: 0.1 s at least
+    form.max_hops.setValue(12)
+    form.apply_button.click()
+    assert w.settings.interval == 0.2 and w.settings.max_hops == 12
+    until(lambda: w.ping_view.snapshot.interval == 0.2 and w.trace_view.snapshot
+          and w.trace_view.snapshot.interval == 0.2)
+    w.tabs.setCurrentWidget(w.ping_view)  # a hidden tab draws when it's shown
+    assert "every 0.2s" in w.ping_view.status.text()
+    assert w.trace_view.host == "example.net" and w.trace_view.runner is not None
+    assert len(w.probers) == 1  # same protocol: same prober
+
+
+def test_tcp_can_ping_but_the_trace_tab_says_why_it_cant_trace(window):
+    w = window(hosts=("example.com",), trace="example.net")
+    until(lambda: w.trace_view.snapshot is not None)
+    form = w.settings_view
+    assert not form.port.isEnabled()
+    form.protocol.setCurrentIndex(form.protocol.findData("tcp"))
+    assert form.port.isEnabled() and "TCP can't trace" in form.note.text()
+    form.port.setValue(80)
+    form.apply_button.click()
+    assert (w.settings.protocol, w.settings.port) == ("tcp", 80)
+    view = w.trace_view
+    assert view.runner is None and not view.start_button.isEnabled()
+    assert not view.cannot.isHidden() and "can't trace" in view.cannot.text()
+    assert view.table.rowCount() == 0
+    until(lambda: w.ping_view.snapshot.prober == "tcp" and
+          w.ping_view.snapshot.targets[0].stats.received >= 3)
+
+    form.protocol.setCurrentIndex(form.protocol.findData("icmp"))
+    form.apply_button.click()
+    assert view.cannot.isHidden() and view.start_button.isEnabled()
+    assert len(w.probers) == 3  # icmp, tcp, icmp
+    view.start_button.click()
+    until(lambda: view.snapshot and view.snapshot.prober == "fake" and view.snapshot.dest_ttl)
+
+
+def test_a_prober_that_cant_be_made_leaves_everything_as_it_was(window):
+    w = window(hosts=("example.com",))
+
+    def broken(settings, demo):
+        raise OSError("no ICMP here")
+
+    w.make = broken
+    form = w.settings_view
+    form.protocol.setCurrentIndex(form.protocol.findData("tcp"))
+    form.apply_button.click()
+    assert "no ICMP here" in form.message.text()
+    assert w.settings.protocol == "icmp" and w.ping_view.runner is not None
+    form.revert_button.click()
+    assert form.protocol.currentData() == "icmp" and not form.message.text()
+
+
+def test_the_demo_network_has_no_protocol_to_choose(window):
+    w = window(hosts=("example.com",), demo=True)
+    form = w.settings_view
+    assert not form.protocol.isEnabled() and not form.port.isEnabled()
+    assert "demo network sends nothing" in form.note.text()
+    assert form.interval.minimum() == 0.01
+    assert "demo network" in w.windowTitle()
+
+
+def test_a_hidden_tab_keeps_its_snapshots_and_draws_when_shown(window):
+    w = window(hosts=("example.com",), trace="example.net")
+    view = w.ping_view
+    assert view.isHidden()  # the trace tab is showing
+    until(lambda: view.snapshot and view.snapshot.targets[0].stats.received >= 3)
+    assert view.table.rowCount() == 0 and view.host_list.count() == 0  # not drawn yet
+    w.tabs.setCurrentWidget(view)
+    assert view.table.rowCount() == 1 and view.host_list.count() == 1
+    assert int(view.table.item(0, 1).text()) >= 3
+
+
+def test_a_lost_probe_is_marked_in_the_gap_of_its_own_line():
+    from ndpt.gui.charts import lost_ticks
+
+    assert lost_ticks([(1, None), (2, 8.0), (3, None), (4, None), (5, 12.0), (6, None)]) == \
+        [(1, 8.0), (3, 8.0), (4, 8.0), (6, 12.0)]
+    assert lost_ticks([(1, None), (2, None)]) == [(1, 0.0), (2, 0.0)]  # never answered: the baseline

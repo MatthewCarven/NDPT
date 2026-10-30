@@ -44,6 +44,7 @@ class TraceView(QWidget):
         self.snapshot: TraceSnapshot | None = None
         self.carried: list[Carried] = []
         self.host: str | None = None
+        self._stale = False  # a snapshot came in while hidden
 
         self.entry = QLineEdit(placeholderText="host to trace, e.g. 1.1.1.1")
         self.entry.returnPressed.connect(self._start_clicked)
@@ -94,7 +95,7 @@ class TraceView(QWidget):
         layout.addLayout(bar)
         layout.addWidget(self.cannot)
         layout.addWidget(main, 1)
-        self._buttons()
+        self._explain()
 
     # --- the session ---
 
@@ -112,39 +113,41 @@ class TraceView(QWidget):
         self.stop()
         self.host = host
         self.entry.setText(host)
-        why = self.can_trace()
-        self.cannot.setText(why or "")
-        self.cannot.setVisible(why is not None)
-        if why is not None:
-            self._buttons()
-            return False
-        self.runner = self.engine.trace(host, self.settings)
-        self.runner.updated.connect(self._show)
-        self.runner.event.connect(self._event)
-        self.runner.finished.connect(self._finished)
         self.snapshot = None
         self.carried = []
         self.table.setRowCount(0)
         self.notes.clear()
         self.history.set_series([])
+        self.hop_chart.set_hops([], [], None)
         self.graph.clear_trace()
         self.pause_button.setChecked(False)
+        if not self._explain():
+            self.status.setText("")
+            return False
+        self.runner = self.engine.trace(host, self.settings)
+        self.runner.updated.connect(self._show)
+        self.runner.event.connect(self._event)
+        self.runner.finished.connect(self._finished)
         self.status.setText(f"tracing {host}...")
         self._buttons()
         return True
 
-    def restart(self, settings: Settings) -> None:
-        """New settings (or a new prober): trace the same host again, if one was being traced."""
+    def restart(self, settings: Settings, again: bool) -> None:
+        """New settings (or a new prober). `again`: trace the same host again from scratch."""
         self.settings = settings
-        running = self.runner is not None
         self.stop()
-        if running and self.host:
+        if again and self.host:
             self.trace(self.host)
         else:
-            why = self.can_trace()
-            self.cannot.setText(why or "")
-            self.cannot.setVisible(why is not None)
-            self._buttons()
+            self._explain()
+
+    def _explain(self) -> bool:
+        """Say why this prober can't trace, if it can't. True if it can."""
+        why = self.can_trace()
+        self.cannot.setText(why or "")
+        self.cannot.setVisible(why is not None)
+        self._buttons()
+        return why is None
 
     def stop(self) -> None:
         if self.runner is not None:
@@ -171,13 +174,13 @@ class TraceView(QWidget):
         self.start_button.setEnabled(running or self.can_trace() is None)
         self.pause_button.setEnabled(running)
 
-    def _finished(self) -> None:
-        if self.sender() is self.runner:  # it ended by itself: a name that won't resolve
+    def _finished(self, runner: TraceRunner) -> None:
+        if runner is self.runner:  # it ended by itself: a name that won't resolve
             self.runner = None
             self._buttons()
 
-    def _event(self, text: str, round_no: int) -> None:
-        if self.sender() is self.runner and round_no > 1:
+    def _event(self, runner: TraceRunner, text: str, round_no: int) -> None:
+        if runner is self.runner and round_no > 1:
             self.route_changed.emit(text)
 
     # --- selecting a hop ---
@@ -217,11 +220,22 @@ class TraceView(QWidget):
 
     # --- drawing ---
 
-    def _show(self, snapshot: TraceSnapshot) -> None:
-        if self.sender() is not self.runner:
+    def _show(self, runner: TraceRunner, snapshot: TraceSnapshot) -> None:
+        if runner is not self.runner:
             return  # a stopped trace's last word
         self.snapshot = snapshot
         self.carried = carried_on(snapshot.hops)
+        self._stale = self.isHidden()  # another tab is showing: draw when this one is
+        if not self._stale:
+            self._draw(snapshot)
+
+    def catch_up(self) -> None:
+        """This tab is showing now: draw the latest snapshot, if it came in while hidden."""
+        if self._stale and self.snapshot is not None:
+            self._stale = False
+            self._draw(self.snapshot)
+
+    def _draw(self, snapshot: TraceSnapshot) -> None:
         self.history.span = max(10.0, 120 * snapshot.interval)
         self._status(snapshot)
         self._fill_table(snapshot)

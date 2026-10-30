@@ -72,19 +72,26 @@ def build_parser() -> argparse.ArgumentParser:
     tui.add_argument("-m", "--max-hops", type=int, default=30, help="for traces, default 30")
     tui.add_argument("-n", "--numeric", action="store_true", help="don't look up hop names")
 
-    sub.add_parser("gui", help="desktop UI (not built yet)")
+    gui = sub.add_parser("gui", parents=[common], help="desktop UI: ping and trace tabs")
+    gui.add_argument("hosts", nargs="*",
+                     help="hosts to ping (more can be added in the window; --demo has its own)")
+    gui.add_argument("--trace", action="store_true",
+                     help="start on the trace tab, tracing the first host")
+    gui.add_argument("-m", "--max-hops", type=int, default=30, help="for traces, default 30")
+    gui.add_argument("-n", "--numeric", action="store_true", help="don't look up hop names")
+    gui.add_argument("--tcp", type=int, metavar="PORT",
+                     help="ping with TCP handshakes to an open PORT (the trace tab needs ICMP)")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command == "gui":
-        print("The GUI isn't built yet: it's phase 3 of PLAN.md.", file=sys.stderr)
-        return 2
     problem = _check(args)
     if problem:
         parser.error(problem)
+    if args.command == "gui":
+        return _gui(args)  # the GUI makes its own prober: its settings can change it
 
     console = Console(highlight=False)
     ascii_only = not console.encoding.lower().startswith("utf")
@@ -138,7 +145,7 @@ def _check(args: argparse.Namespace) -> str | None:
     max_hops = getattr(args, "max_hops", None)
     if max_hops is not None and not 1 <= max_hops <= 255:
         return "max hops must be between 1 and 255"
-    if args.command == "tui" and args.trace and not args.hosts and not args.demo:
+    if args.command in ("tui", "gui") and args.trace and not args.hosts and not args.demo:
         return "--trace needs a host to trace"
     return None
 
@@ -162,6 +169,25 @@ def _tui(args: argparse.Namespace, prober: Prober, resolver: Resolver) -> int:
 
     asyncio.run(run())
     return app.return_code or 0
+
+
+def _gui(args: argparse.Namespace) -> int:
+    if any(importlib.util.find_spec(name) is None for name in ("PySide6", "pyqtgraph")):
+        print('The GUI needs PySide6 and pyqtgraph, the "gui" extra: pip install -e ".[gui]"',
+              file=sys.stderr)
+        return 1
+    from ndpt.gui.app import run
+    from ndpt.gui.bridge import Settings
+
+    settings = Settings(interval=args.interval, timeout=args.timeout, size=args.size,
+                        family=args.family, max_hops=args.max_hops, lookup_names=not args.numeric,
+                        protocol="tcp" if args.tcp else "icmp", port=args.tcp or 443)
+    hosts = args.hosts or (list(DEMO_HOSTS) if args.demo else [])
+    try:
+        return run(settings, hosts=hosts, trace=hosts[0] if args.trace else None, demo=args.demo)
+    except (NotImplementedError, OSError) as e:  # no prober for this platform
+        print(e, file=sys.stderr)
+        return 1
 
 
 async def _run(session: Session, prober: Prober, render: Callable[[], RenderableType],

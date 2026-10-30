@@ -49,11 +49,14 @@ class Runner(QObject):
     """One session on the loop thread, reporting to the Qt thread.
 
     `updated` carries a snapshot whenever the session has news (at most every
-    `refresh` seconds); `finished` comes once, after the last snapshot.
+    `refresh` seconds); `finished` comes once, after the last snapshot. Every
+    signal carries the runner first, so a view can tell its current runner's
+    news from a stopped one's last words (a queued signal still arrives after
+    `disconnect`, and `QObject.sender()` is None in a wrapped slot).
     """
 
-    updated = Signal(object)
-    finished = Signal()
+    updated = Signal(object, object)  # (runner, snapshot)
+    finished = Signal(object)         # (runner)
 
     def __init__(self, engine: Engine, session: Session) -> None:
         super().__init__()
@@ -67,7 +70,7 @@ class Runner(QObject):
         self.engine.runners.add(self)
         self.engine.loop.submit(self._run())
 
-    def _forget(self) -> None:
+    def _forget(self, _: Runner) -> None:
         self.engine.runners.discard(self)
 
     def stop(self) -> None:
@@ -98,7 +101,7 @@ class Runner(QObject):
                 await asyncio.wait({work}, timeout=self.engine.refresh)
                 if self._news:
                     self._news = False
-                    self.updated.emit(session.snapshot())
+                    self.updated.emit(self, session.snapshot())
             work.result()
         except Exception:
             log.exception("%s failed", type(session).__name__)
@@ -107,8 +110,8 @@ class Runner(QObject):
                 session.stop()
                 work.cancel()
                 await asyncio.gather(work, return_exceptions=True)
-            self.updated.emit(session.snapshot())
-            self.finished.emit()
+            self.updated.emit(self, session.snapshot())
+            self.finished.emit(self)
 
 
 class PingRunner(Runner):
@@ -130,12 +133,12 @@ class PingRunner(Runner):
 
 
 class TraceRunner(Runner):
-    event = Signal(str, int)  # a path event, and the round it came in
+    event = Signal(object, str, int)  # (runner, a path event, the round it came in)
 
     def __init__(self, engine: Engine, session: TraceSession) -> None:
         super().__init__(engine, session)
         session.listeners.append(self._heard)
-        session.event_listeners.append(lambda text: self.event.emit(text, session.round))
+        session.event_listeners.append(lambda text: self.event.emit(self, text, session.round))
 
 
 class Engine:

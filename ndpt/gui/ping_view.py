@@ -36,6 +36,7 @@ class PingView(QWidget):
         self.theme = theme
         self.runner: PingRunner | None = None
         self.snapshot: PingSnapshot | None = None
+        self._stale = False  # a snapshot came in while hidden
         self.names = list(dict.fromkeys(hosts))  # what the session is pinging, as far as we know
         self._slots: dict[str, int] = {}         # host name -> its colour, for as long as it stays
 
@@ -169,10 +170,21 @@ class PingView(QWidget):
 
     # --- drawing ---
 
-    def _show(self, snapshot: PingSnapshot) -> None:
-        if self.sender() is not self.runner:
+    def _show(self, runner: PingRunner, snapshot: PingSnapshot) -> None:
+        if runner is not self.runner:
             return  # a stopped session's last word, or the session before a restart
         self.snapshot = snapshot
+        self._stale = self.isHidden()  # another tab is showing: draw when this one is
+        if not self._stale:
+            self._draw(snapshot)
+
+    def catch_up(self) -> None:
+        """This tab is showing now: draw the latest snapshot, if it came in while hidden."""
+        if self._stale and self.snapshot is not None:
+            self._stale = False
+            self._draw(self.snapshot)
+
+    def _draw(self, snapshot: PingSnapshot) -> None:
         targets = [t for t in snapshot.targets if t.name in self.names]
         self._fill_list(targets)
         self._fill_table(targets)

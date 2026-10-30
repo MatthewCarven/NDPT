@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import threading
+import warnings
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
@@ -52,6 +53,8 @@ class LoopThread:
                 task.cancel()
             self.loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
             self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-            # Reverse-DNS lookups can sit in the default executor for seconds; don't wait them out.
-            self.loop.run_until_complete(self.loop.shutdown_default_executor(timeout=1.0))
+            # Reverse-DNS lookups can sit in the default executor for seconds; don't wait them
+            # out, and don't warn that we didn't (asyncio does, on stderr).
+            with warnings.catch_warnings(action="ignore", category=RuntimeWarning):
+                self.loop.run_until_complete(self.loop.shutdown_default_executor(timeout=1.0))
             self.loop.close()

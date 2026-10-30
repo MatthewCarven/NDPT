@@ -32,8 +32,29 @@ def test_refuses_fast_intervals_on_a_real_network(capsys):
     assert "only allowed with --demo" in capsys.readouterr().err
 
 
-def test_gui_says_it_is_not_built_yet(capsys):
-    assert main(["gui"]) == 2
+def test_gui_passes_its_options_to_the_window(monkeypatch):
+    pytest.importorskip("PySide6")
+    pytest.importorskip("pyqtgraph")
+    import ndpt.gui.app
+
+    calls = []
+    monkeypatch.setattr(ndpt.gui.app, "run", lambda settings, **kw: calls.append((settings, kw)) or 0)
+    assert main(["gui", "--demo", "--trace"]) == 0
+    settings, kw = calls[-1]
+    assert kw == {"hosts": ["example.com", "example.net", "example.org"], "trace": "example.com",
+                  "demo": True}
+    assert main(["gui", "--tcp", "80", "-i", "2", "-m", "12", "-n", "1.1.1.1"]) == 0
+    settings, kw = calls[-1]
+    assert (settings.protocol, settings.port, settings.interval) == ("tcp", 80, 2.0)
+    assert (settings.max_hops, settings.lookup_names) == (12, False)
+    assert kw == {"hosts": ["1.1.1.1"], "trace": None, "demo": False}
+
+
+def test_gui_trace_needs_a_host(capsys):
+    with pytest.raises(SystemExit) as exit_:
+        main(["gui", "--trace"])
+    assert exit_.value.code == 2
+    assert "--trace needs a host" in capsys.readouterr().err
 
 
 @windows_only

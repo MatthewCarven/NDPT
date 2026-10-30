@@ -54,11 +54,28 @@ class ClockAxis(pg.AxisItem):
         return [time.strftime("%H:%M:%S", time.localtime(v)) for v in values]
 
 
+def lost_ticks(history: Sequence[tuple[float, float | None]]) -> list[tuple[float, float]]:
+    """Where to mark each lost probe: (time sent, the line's level just before the gap).
+
+    Marking the gap in its own line says whose probe was lost. Losses before
+    any answer take the first answer's level; a host that never answered
+    gets its marks on the baseline.
+    """
+    level = next((rtt for _, rtt in history if rtt is not None), 0.0)
+    marks = []
+    for t, rtt in history:
+        if rtt is None:
+            marks.append((t, level))
+        else:
+            level = rtt
+    return marks
+
+
 class LatencyChart(pg.PlotWidget):
     """Round-trip times against the clock, scrolling, newest on the right.
 
-    A gap in a line is a lost probe, and each lost probe is a red tick along the
-    bottom. The y axis starts at 0, so a steady 20.1-20.4 ms line looks steady.
+    A gap in a line is a lost probe, marked by a red tick in the gap (see
+    `lost_ticks`). The y axis starts at 0, so a steady 20.1-20.4 ms line looks steady.
     """
 
     def __init__(self, theme: Theme, title: str, span: float = 120.0) -> None:
@@ -82,7 +99,7 @@ class LatencyChart(pg.PlotWidget):
         keys = {key for key, _, _ in series}
         for key in [k for k in self.curves if k not in keys]:
             self.removeItem(self.curves.pop(key))
-        lost: list[float] = []
+        lost: list[tuple[float, float]] = []
         shown: list[float] = []
         since = time.time() - self.span
         for key, colour, history in series:
@@ -93,12 +110,14 @@ class LatencyChart(pg.PlotWidget):
             xs = np.fromiter((t for t, _ in history), float, len(history))
             ys = np.fromiter((math.nan if rtt is None else rtt for _, rtt in history), float,
                              len(history))
+            if np.isnan(ys).all():
+                xs = ys = np.zeros(0)  # nothing answered: all-NaN data makes pyqtgraph warn
             # Dots as well as the line, so an answer between two losses still shows.
             curve.setData(xs, ys, connect="finite", pen=pg.mkPen(colour, width=2), symbol="o",
                           symbolSize=5, symbolPen=None, symbolBrush=pg.mkBrush(colour))
-            lost += [t for t, rtt in history if rtt is None]
+            lost += lost_ticks(history)
             shown += [rtt for t, rtt in history if rtt is not None and t >= since]
-        self.lost.setData(lost, [0.0] * len(lost))
+        self.lost.setData([t for t, _ in lost], [y for _, y in lost])
         self.setYRange(0, top_of(shown), padding=0)
 
     def _scroll(self) -> None:
@@ -185,7 +204,7 @@ class HopChart(pg.PlotWidget):
         avg = np.array([h.stats.avg for h, _ in shown])
         best = np.array([h.stats.best for h, _ in shown])
         worst = np.array([h.stats.worst for h, _ in shown])
-        brushes = [self.theme.series[0] if h.ttl == dest_ttl
+        brushes = [self.theme.bar_dest if h.ttl == dest_ttl
                    else self.theme.bar_faint if c.slow_to_reply else self.theme.bar
                    for h, c in shown]
         pens = [pg.mkPen(self.theme.ink, width=2) if h.ttl == selected else pg.mkPen(None)

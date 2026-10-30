@@ -30,6 +30,7 @@ class Theme:
     latency: tuple[str, ...]  # little to a lot, every step visible on the surface
     bar: str                  # an intermediate hop's average
     bar_faint: str            # an average that doesn't carry on to the hops after it
+    bar_dest: str             # the destination's: a step further from the surface than `bar`
     good: str = GOOD
     warning: str = WARNING
     critical: str = CRITICAL
@@ -58,13 +59,13 @@ LIGHT = Theme(
     dark=False, surface="#fcfcfb", ink="#0b0b0b", secondary="#52514e", muted="#898781",
     grid="#e1e0d9",
     series=("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"),
-    latency=BLUES[3:], bar=BLUES[4], bar_faint=BLUES[1],
+    latency=BLUES[3:], bar=BLUES[4], bar_faint=BLUES[1], bar_dest=BLUES[8],
 )
 DARK = Theme(
     dark=True, surface="#1a1a19", ink="#f0efec", secondary="#c3c2b7", muted="#898781",
     grid="#2c2c2a",
     series=("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"),
-    latency=BLUES[10::-1], bar=BLUES[7], bar_faint=BLUES[11],
+    latency=BLUES[10::-1], bar=BLUES[8], bar_faint=BLUES[11], bar_dest=BLUES[3],
 )
 
 
