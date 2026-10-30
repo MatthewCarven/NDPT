@@ -14,7 +14,8 @@ dependencies = ["rich>=13"]
 [project.optional-dependencies]
 # Pinned when their phases land (see PLAN.md).
 tui = ["textual==8.2.8"]
-gui = ["PySide6", "pyqtgraph"]
+# PySide6-Essentials is PySide6 without its add-ons (WebEngine and the rest), which NDPT doesn't use.
+gui = ["PySide6-Essentials==6.12.0", "pyqtgraph==0.14.0"]
 dev = ["pytest>=8", "pytest-asyncio>=0.23"]
 
 [project.scripts]

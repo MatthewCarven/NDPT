@@ -10,6 +10,7 @@ from ndpt.core.backends.base import Prober
 from ndpt.core.models import Hop, ProbeResult, ProbeStatus
 from ndpt.core.resolve import Resolver, ResolveError
 from ndpt.core.session import Session, notify
+from ndpt.core.snapshot import HopSnapshot, Responder, StatsSnapshot, TraceSnapshot
 from ndpt.core.stats import RollingStats
 
 
@@ -118,6 +119,19 @@ class TraceSession(Session):
                 notes.append(f"hop {hop.ttl}: slower than the hops after it, so that router is "
                              "slow to reply, not slow to forward")
         return notes
+
+    def snapshot(self) -> TraceSnapshot:
+        """A frozen copy of the trace so far, for another thread. Call it on the session's loop."""
+        def name(address: str) -> str | None:
+            return self.resolver.cached(address) if self.lookup_names else None
+
+        hops = tuple(HopSnapshot(hop.ttl,
+                                 tuple(Responder(a, n, name(a)) for a, n in hop.responders.most_common()),
+                                 hop.last_status, StatsSnapshot.of(hop.stats))
+                     for hop in self.visible_hops)
+        return TraceSnapshot(self.prober.name, self.host, self.address, self.error, self.round,
+                             self.interval, self.paused, self.dest_ttl, hops, tuple(self.notes()),
+                             tuple(self.events))
 
     def _new_hop(self, ttl: int) -> Hop:
         return Hop(ttl, RollingStats(self.window))

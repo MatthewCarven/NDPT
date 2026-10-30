@@ -10,6 +10,7 @@ from ndpt.core.backends.base import Prober
 from ndpt.core.models import PingTarget, ProbeResult, ProbeStatus
 from ndpt.core.resolve import Resolver, ResolveError
 from ndpt.core.session import Session, notify
+from ndpt.core.snapshot import PingSnapshot, StatsSnapshot, TargetSnapshot
 from ndpt.core.stats import RollingStats
 
 
@@ -56,6 +57,12 @@ class PingSession(Session):
         task = self._drives.pop(id(target), None)
         if task is not None:
             task.cancel()
+
+    def snapshot(self) -> PingSnapshot:
+        """A frozen copy of every host's state, for another thread. Call it on the session's loop."""
+        targets = tuple(TargetSnapshot(id(t), t.name, t.address, t.error, t.last_status,
+                                       StatsSnapshot.of(t.stats)) for t in self.targets)
+        return PingSnapshot(self.prober.name, self.interval, self.paused, targets)
 
     async def run(self) -> None:
         async with asyncio.TaskGroup() as group:
