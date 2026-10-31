@@ -36,13 +36,18 @@ def column(app: NdptApp, key: str) -> list[str]:
     return [str(value) for value in table.get_column(key)]
 
 
+def history_head(app: NdptApp) -> str:
+    return str(app.screen.query_one("#history-head").render())
+
+
 async def test_ping_screen_shows_each_host_with_its_numbers():
     app = make_app()
     async with app.run_test(size=SIZE) as pilot:
         assert isinstance(app.screen, PingScreen)
         session = app.ping_screen.session
         await until(pilot, lambda: all(t.stats.received >= 3 for t in session.targets))
-        await pilot.pause(0.3)  # a redraw or two
+        # The table redraws on a timer: wait for it, not for a fixed time (GitHub's machines are slow).
+        await until(pilot, lambda: len(sent := column(app, "Sent")) == 2 and all(int(n) >= 3 for n in sent))
         hosts = column(app, "host")
         assert len(hosts) == 2
         assert hosts[0].startswith("example.com (203.0.113.") and hosts[1].startswith("example.net (")
@@ -142,9 +147,9 @@ async def test_enter_on_a_hop_opens_its_history():
         await until(pilot, lambda: session.dest_ttl is not None and len(column(app, "ttl")) >= 3)
         await pilot.press("down", "enter")
         assert isinstance(app.screen, HistoryScreen)
-        await pilot.pause(0.1)
-        head = str(app.screen.query_one("#history-head").render())
-        assert head.startswith("hop 2: ") and "sent " in head and "answered by " in head
+        await until(pilot, lambda: "answered by " in history_head(app))
+        head = history_head(app)
+        assert head.startswith("hop 2: ") and "sent " in head
         await pilot.press("escape")
         assert isinstance(app.screen, TraceScreen)
 
@@ -155,8 +160,7 @@ async def test_h_shows_a_hosts_history():
         await until(pilot, lambda: app.ping_screen.session.targets[0].stats.received > 0)
         await pilot.press("h")
         assert isinstance(app.screen, HistoryScreen)
-        await pilot.pause(0.1)
-        assert str(app.screen.query_one("#history-head").render()).startswith("example.com (")
+        await until(pilot, lambda: history_head(app).startswith("example.com ("))
 
 
 async def test_a_on_the_trace_screen_traces_another_host():
