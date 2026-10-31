@@ -17,12 +17,17 @@ tui = ["textual==8.2.8"]
 # PySide6-Essentials is PySide6 without its add-ons (WebEngine and the rest), which NDPT doesn't use.
 gui = ["PySide6-Essentials==6.12.0", "pyqtgraph==0.14.0"]
 dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+# For build.cmd: one-file Windows programs. Pillow lets PyInstaller turn icon.png into the exe's icon.
+build = ["pyinstaller==6.22.3", "pillow==13.0.0"]
 
 [project.scripts]
 ndpt = "ndpt.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["ndpt*"]
+
+[tool.setuptools.package-data]
+"ndpt.gui" = ["icon.png"]  # the window icon, once there is one (see build.cmd)
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

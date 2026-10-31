@@ -55,12 +55,26 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 - [ ] **Light mode**, if you ever use it: the GUI follows Windows' setting, and every grab so
       far was dark.
 
+### For Matthew: the 2026-10-31 additions
+
+- [ ] **`+` and `-` in a real window.** Both front ends were driven by simulated keys only. In
+      the GUI also try `Ctrl+=` / `Ctrl+-` with the cursor in a host box (plain `+` and `-`
+      type there), and the Slower/Faster buttons; Faster greys out at the starting interval.
+- [ ] **The icon.** Save a square PNG (256x256 or bigger) as `ndpt\gui\icon.png`, then run
+      `build.cmd`. Both exes get it, and so does the GUI's window and taskbar button
+      (also when run with `python -m ndpt gui`).
+- [ ] **The exes on a PC without Python**, when one turns up (the same trip as the no-admin
+      check above: a fresh PC tests both).
+
 ## Phase 4: Polish
 
 - [ ] CSV/JSON export, saved settings, session save/load. The snapshots (`core/snapshot.py`)
       are frozen copies of everything the front ends show: a good thing to export from.
 - [ ] `e` in the TUI exports what's on screen, once the formats exist.
-- [ ] PyInstaller build.
+- [x] PyInstaller build: `build.cmd` makes `dist\ndpt-tui.exe` and `dist\ndpt-gui.exe`
+      (`packaging/build.py`). Done 2026-10-31.
+- [ ] Version info in the exes (File > Properties > Details shows nothing yet): PyInstaller's
+      `--version-file`.
 
 ## Phase 5: Performance testing
 
@@ -103,3 +117,30 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 - [ ] GUI: closing while router-name lookups run leaves the process alive for a few seconds:
       Python joins the default executor's threads at exit, and Windows' reverse lookup for an
       address with no name takes seconds.
+- [ ] `+`/`-` aren't in the CLI's live mode, which reads no keys. A new trace on the TUI's
+      trace screen starts again at the starting interval, not the pace the last one had.
+
+## Ideas (2026-10-31, for Matthew to pick from)
+
+Not planned yet. What people reach for in a tool like this, beyond what PLAN.md has:
+
+- [ ] **"Is it me, my router, my ISP, or them?"** One button: ping the gateway, the ISP's first
+      hop, a DNS server, 1.1.1.1 and the target together, then say in plain words where the
+      trouble starts.
+- [ ] **Latency under load (bufferbloat).** Ping while a download fills the link, and grade how
+      far latency climbs. Matthew saw 300–900 ms during a download on 2026-10-30.
+- [ ] **An outage log.** Timestamped "1.1.1.1 stopped answering 14:02:10, back 14:02:45 (35 s)"
+      and route changes, kept and exportable: evidence for an ISP support call.
+- [ ] **Alerts.** A Windows notification when loss or latency crosses a line for N probes, or a
+      host goes down or comes back. With a tray icon whose colour is the current state, for
+      leaving it running.
+- [ ] **The link itself.** Local addresses, gateway, DNS servers, public IP, and Wi-Fi SSID,
+      signal and channel (`netsh wlan show interfaces`), with signal drawn beside latency to
+      see whether a bad patch was the Wi-Fi.
+- [ ] **Call/game quality score.** MOS (the ITU E-model) from latency, jitter and loss: one
+      number people understand.
+- [ ] **A shareable report.** One HTML page or PNG of a trace and its numbers, for a forum
+      post or a support ticket.
+- [ ] **LAN sweep.** Ping every address on the local subnet and list who answers, with names
+      and the network-card maker from the ARP table.
+- [ ] **Compare the two links side by side** (Wi-Fi and the tether), once `--source` exists.

@@ -57,6 +57,13 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   `QTest.qWaitForWindowActive(w)` (`activateWindow()` alone isn't enough offscreen). And don't
   test a shortcut by swapping the method it's connected to: PySide finds a bound-method slot by
   name, so the swap gets called, not the original.
+- **`build.cmd` (`packaging/build.py`) makes the exes with PyInstaller 6.22.3**, into `dist\`
+  (`build\` holds its work files and specs; both are gitignored). Each exe leaves out the
+  other front end, which cli.py imports inside a function (`--exclude-module`), and packs
+  every submodule of textual and rich (`--collect-submodules`): both import parts of
+  themselves only when first used. From PowerShell, run it as `& .\build.cmd`: `cmd /c
+  build.cmd` couldn't find it in this folder. It ends with `pause`, which returns at once
+  when stdin isn't a console.
 - **`Session.set_interval` wakes sleeping beats** (`_wake` is pulsed, `_next_beat` re-reads the
   interval), so speeding up from 60 s doesn't wait out the 60 s. `faster()` stops at
   `base_interval`, what the session was made with.

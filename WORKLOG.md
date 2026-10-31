@@ -213,3 +213,40 @@ in three commits (709c8c9, 04a5d39, 34d9991, and the docs after).
   30-47 ms in a real window against ~9 ms offscreen; not understood. Both in TODO.md.
 - *Lost-probe ticks* all along the bottom made a solid red comb for a host that never answers
   (192.0.2.1), hiding everyone else's losses. Each tick now sits in the gap of its own line.
+
+## 2026-10-31: + and - for the interval; build.cmd for the exes
+
+Matthew asked for keys to lengthen the time between pings and shorten it back
+to where it started, and for a build script for the TUI and GUI.
+
+**Built:**
+- `Session.slower()` / `faster()` step through 1, 2, 5, 10, 15, 30 and 60 s; `faster()`
+  stops at `base_interval`, what the session was made with. `set_interval()` pulses a wake
+  event, and the beat (`_next_beat`, now shared by ping and trace) re-reads the interval,
+  so going from 60 s back to 1 s happens at once instead of after the minute.
+- TUI: `+` (or `=`, + without shift) and `-` on both screens, in the footer; a toast when
+  there's no further to go.
+- GUI: the same keys act on the tab on show, plus `Ctrl+=` / `Ctrl+-` for when a host box
+  has focus (a text box keeps plain + and - for itself). Slower and Faster buttons beside
+  Pause; Faster greys out at the floor (snapshots now carry `base_interval`). The ping
+  chart's time span follows the interval.
+- `build.cmd` -> `packaging/build.py`: PyInstaller 6.22.3, one-file exes in `dist\`
+  (`--onedir` for folders). Each exe leaves out the other front end and packs every
+  submodule of textual and rich, which import parts of themselves lazily. If
+  `ndpt\gui\icon.png` exists, both exes take it as their icon and the GUI uses it for its
+  window; the GUI also sets an AppUserModelID so it gets its own taskbar button.
+
+**Checked:**
+- 124 tests pass (119 before), including a real simulated `+` reaching the GUI's shortcut
+  once the window is active, and `-` typing into a host box rather than speeding up.
+- TUI headless: the footer reads `space Pause  + Slower  - Faster ...`; `-` at the floor
+  says so. GUI grabbed offscreen (with `QT_QPA_FONTDIR`): Slower/Faster sit beside Pause
+  on both tabs, the status says "every 2s".
+- `ndpt-tui.exe` (23 MB, ~20 s to build) in the Terminal panel: `--demo`, then real
+  probes to 1.1.1.1 (~25 ms) and 127.0.0.1. `ndpt-gui.exe` (70 MB, ~90 s): window up 3.2 s
+  after launch, titled right, and both its processes gone after closing it.
+- **Not checked:** the keys by hand in a real window, and the exes on a PC without Python.
+  On Matthew's list in TODO.md, with the icon.
+
+**Ideas:** Matthew asked what else people would want in a tool like this; the list is in
+TODO.md under "Ideas".

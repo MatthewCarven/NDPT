@@ -99,6 +99,24 @@ use `Ctrl+=` and `Ctrl+-` instead.
 
 The GUI follows Windows' light or dark mode.
 
+### Windows programs, for PCs without Python
+
+```
+.venv\Scripts\python -m pip install -e ".[build]"    once: PyInstaller and Pillow
+build.cmd                                             dist\ndpt-tui.exe and dist\ndpt-gui.exe
+build.cmd gui                                         just one of them (tui or gui)
+build.cmd --onedir                                    a folder per program instead of one file
+```
+
+Each exe takes the same arguments as `ndpt tui` and `ndpt gui`
+(`ndpt-gui.exe --demo`, `ndpt-tui.exe --trace 1.1.1.1`). The TUI is about
+23 MB and builds in ~20 s; the GUI is about 70 MB, builds in ~90 s, and takes
+~3 s to open, most of it unpacking itself. With `--onedir` it opens faster, but
+it's a folder to carry around rather than one file.
+
+For an icon, save a square PNG (256x256 or bigger) as `ndpt\gui\icon.png` and
+build again: both exes get it, and so does the GUI's window and taskbar button.
+
 ### Reading a trace
 
 Routers answer traceroute probes as a low-priority chore, and rate-limit those
@@ -145,5 +163,7 @@ ndpt/
           route_graph.py charts.py settings_view.py theme.py widgets.py
 tests/                       test_tui.py drives the TUI headless (Textual's pilot);
                              test_gui.py the GUI offscreen
+packaging/                   build.py, and what each exe runs (ndpt_tui.py, ndpt_gui.py)
 starttui.cmd                 the TUI without activating the venv
+build.cmd                    the Windows programs, into dist\
 ```
