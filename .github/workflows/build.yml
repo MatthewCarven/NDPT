@@ -1,0 +1,65 @@
+# Builds NDPT's Windows programs (ndpt-tui.exe, ndpt-gui.exe) on GitHub's Windows machines.
+#
+#   Push a tag like v0.2.0      tests, both exes, and a GitHub Release with them attached.
+#                               The tag must match the version in pyproject.toml and ndpt/__init__.py.
+#   Actions > build > Run workflow
+#                               tests and both exes, downloadable from the run's page for 14 days;
+#                               no release.
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # to create the release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install NDPT with both front ends and the build tools
+        run: python -m pip install -e ".[dev,tui,gui,build]"
+
+      - name: Check the tag matches NDPT's version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          $want = "${{ github.ref_name }}".TrimStart("v")
+          $have = python -c "import importlib.metadata as m, ndpt; print(m.version('ndpt'), ndpt.__version__)"
+          if ($have -ne "$want $want") {
+            Write-Error "The tag is ${{ github.ref_name }}, but pyproject.toml and ndpt/__init__.py say '$have'. Bump both, then tag again."
+            exit 1
+          }
+
+      - name: Test
+        # Not the "network" tests: they send real ICMP, which GitHub's machines may not pass.
+        run: python -m pytest -q -m "not network"
+
+      - name: Build the exes
+        run: python packaging/build.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndpt-windows
+          path: |
+            dist/ndpt-tui.exe
+            dist/ndpt-gui.exe
+          retention-days: 14
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${{ github.ref_name }}" dist/ndpt-tui.exe dist/ndpt-gui.exe
+          --title "NDPT ${{ github.ref_name }}"
+          --notes-file packaging/release-notes.md --generate-notes
