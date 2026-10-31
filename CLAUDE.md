@@ -2,6 +2,10 @@
 
 Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
 
+- **Pushing NDPT is fine without asking.** Matthew, 2026-10-31: "feel free to push when you
+  like". This overrides the working agreement's "flag pushes" for this repo only. Push
+  committed work to `origin/main`; never force-push or rewrite pushed history.
+
 - **venv**: `.venv` (Python 3.14.4). Tests: `.venv\Scripts\python -m pytest -q`.
 - **Captured CLI output**: set `PYTHONIOENCODING=utf-8` (the tool shell is cp1252) and
   `COLUMNS=130` (rich assumes 80 columns when output isn't a terminal).
