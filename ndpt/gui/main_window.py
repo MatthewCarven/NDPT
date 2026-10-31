@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QMainWindow, QTabWidget
 
 from ndpt.core.backends import Prober
@@ -15,6 +15,9 @@ from ndpt.gui.theme import Theme
 from ndpt.gui.trace_view import TraceView
 
 ROUTE_CHANGE_MS = 8000  # how long a route change stays in the status bar
+# Probe less or more often. A text box takes plain + and - for itself; the Ctrl ones work there too.
+SLOWER_KEYS = ("+", "=", "Ctrl+=", "Ctrl++")  # = is + without shift
+FASTER_KEYS = ("-", "Ctrl+-")
 
 
 class MainWindow(QMainWindow):
@@ -45,6 +48,9 @@ class MainWindow(QMainWindow):
         self.settings_view.applied.connect(self.apply)
         self.trace_view.route_changed.connect(
             lambda text: self.statusBar().showMessage(f"route change: {text}", ROUTE_CHANGE_MS))
+        for keys, pace in ((SLOWER_KEYS, self.slower), (FASTER_KEYS, self.faster)):
+            for key in keys:
+                QShortcut(QKeySequence(key), self).activated.connect(pace)
         self.resize(1280, 820)
         self.ping_view.start()
         if trace:
@@ -55,6 +61,18 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentWidget(self.trace_view)
         if host != self.trace_view.host or self.trace_view.runner is None:
             self.trace_view.trace(host)
+
+    def slower(self) -> None:
+        """Probe less often on the tab on show (the + key)."""
+        view = self.tabs.currentWidget()
+        if view is self.ping_view or view is self.trace_view:
+            view.slower()
+
+    def faster(self) -> None:
+        """Probe more often on the tab on show, down to where it started (the - key)."""
+        view = self.tabs.currentWidget()
+        if view is self.ping_view or view is self.trace_view:
+            view.faster()
 
     def _tab_changed(self, index: int) -> None:
         view = self.tabs.widget(index)

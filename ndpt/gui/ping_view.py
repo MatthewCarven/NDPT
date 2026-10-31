@@ -12,7 +12,7 @@ from ndpt.core.snapshot import PingSnapshot, TargetSnapshot
 from ndpt.gui.bridge import Engine, PingRunner, Settings
 from ndpt.gui.charts import HistogramChart, LatencyChart
 from ndpt.gui.theme import Theme
-from ndpt.gui.widgets import dot, last_text, number_table, set_cell, swatch
+from ndpt.gui.widgets import dot, last_text, number_table, pace_buttons, set_cell, swatch
 from ndpt.textviz import fmt_ms, host_label
 
 COLUMNS = ("Host", "Sent", "Loss", "Last", "Avg", "Best", "Worst", "StDev", "Jitter", "p95")
@@ -55,6 +55,7 @@ class PingView(QWidget):
         self.pause_button = QPushButton("Pause")
         self.pause_button.setCheckable(True)
         self.pause_button.toggled.connect(self._pause)
+        self.slower_button, self.faster_button = pace_buttons(self.slower, self.faster)
         self.status = QLabel()
         self.status.setWordWrap(True)
 
@@ -64,12 +65,16 @@ class PingView(QWidget):
         buttons = QHBoxLayout()
         buttons.addWidget(self.remove_button)
         buttons.addWidget(self.trace_button)
+        pace = QHBoxLayout()
+        pace.addWidget(self.pause_button)
+        pace.addWidget(self.slower_button)
+        pace.addWidget(self.faster_button)
         side = QVBoxLayout()
         side.addWidget(QLabel("Hosts"))
         side.addLayout(entry_row)
         side.addWidget(self.host_list, 1)
         side.addLayout(buttons)
-        side.addWidget(self.pause_button)
+        side.addLayout(pace)
         side.addWidget(self.status)
         panel = QWidget()
         panel.setLayout(side)
@@ -153,6 +158,14 @@ class PingView(QWidget):
             (self.runner.pause if paused else self.runner.resume)()
         self.pause_button.setText("Resume" if paused else "Pause")
 
+    def slower(self) -> None:
+        if self.runner is not None:
+            self.runner.slower()
+
+    def faster(self) -> None:
+        if self.runner is not None:
+            self.runner.faster()
+
     def _selection_changed(self) -> None:
         self._buttons()
 
@@ -194,6 +207,8 @@ class PingView(QWidget):
         self.histogram.set_series([(t.name, self.colour(t.name),
                                     [rtt for _, rtt in t.stats.history if rtt is not None])
                                    for t in live])
+        self.chart.span = max(10.0, 120 * snapshot.interval)  # follows + and -
+        self.faster_button.setEnabled(snapshot.interval > snapshot.base_interval)
         status = f"{snapshot.prober} every {snapshot.interval:g}s"
         self.status.setText(status + (", paused" if snapshot.paused else ""))
 

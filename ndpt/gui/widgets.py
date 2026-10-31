@@ -1,13 +1,14 @@
-"""Small Qt pieces both tabs use: tables of numbers, colour swatches, status dots."""
+"""Small Qt pieces both tabs use: tables of numbers, colour swatches, status dots, pace buttons."""
 
 from __future__ import annotations
 
 import functools
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QIcon, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import (QAbstractItemView, QHeaderView, QPushButton, QTableWidget,
+                               QTableWidgetItem)
 
 from ndpt.core.models import ProbeStatus
 from ndpt.textviz import fmt_ms
@@ -95,6 +96,21 @@ def set_cell(table: QTableWidget, row: int, column: int, text: str, *, number: b
     if item.data(COLOUR_KEY) != colour:
         item.setData(Qt.ItemDataRole.ForegroundRole, QColor(colour) if colour else None)
         item.setData(COLOUR_KEY, colour)
+
+
+def pace_buttons(slower: Callable[[], None],
+                 faster: Callable[[], None]) -> tuple[QPushButton, QPushButton]:
+    """Slower and Faster: the buttons for the window's + and - keys."""
+    slower_button = QPushButton("Slower")
+    slower_button.setToolTip("Probe less often: a step longer between probes, up to a minute "
+                             "(+, or Ctrl+= while typing)")
+    slower_button.clicked.connect(slower)
+    faster_button = QPushButton("Faster")
+    faster_button.setToolTip("Probe more often again, down to the interval it started with "
+                             "(-, or Ctrl+- while typing)")
+    faster_button.clicked.connect(faster)
+    faster_button.setEnabled(False)  # a session starts as fast as it goes
+    return slower_button, faster_button
 
 
 def last_text(status: ProbeStatus | None, rtt: float | None, echo_only: bool = False) -> str:

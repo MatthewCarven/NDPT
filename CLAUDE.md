@@ -53,5 +53,12 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   with `WA_ShowWithoutActivating`, so the window appears on screen without taking focus.
 - **Matthew's Windows is in dark mode**, and the GUI follows it (`gui/theme.py`). Offscreen
   runs are always light.
+- **A simulated key reaches a `QShortcut` only in the active window**: `w.show()`, then
+  `QTest.qWaitForWindowActive(w)` (`activateWindow()` alone isn't enough offscreen). And don't
+  test a shortcut by swapping the method it's connected to: PySide finds a bound-method slot by
+  name, so the swap gets called, not the original.
+- **`Session.set_interval` wakes sleeping beats** (`_wake` is pulsed, `_next_beat` re-reads the
+  interval), so speeding up from 60 s doesn't wait out the 60 s. `faster()` stops at
+  `base_interval`, what the session was made with.
 - **Time a GUI change by its redraws, not by eye**: a 20 ms `QTimer` noting its longest gap shows
   a stalled Qt thread. Check the snapshots really arrived first: an empty window never stalls.

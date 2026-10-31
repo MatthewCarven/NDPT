@@ -87,8 +87,8 @@ class TraceSession(Session):
                         break
                 if self.stopping or (self.rounds is not None and self.round >= self.rounds):
                     break
-                next_at = max(next_at + self.interval, loop.time())
-                if await self._sleep(next_at - loop.time()):
+                next_at = await self._next_beat(next_at)
+                if next_at is None:
                     break
             await self._finish(inflight)
             if self._lookups and not self.stopping:
@@ -130,8 +130,8 @@ class TraceSession(Session):
                                  hop.last_status, StatsSnapshot.of(hop.stats))
                      for hop in self.visible_hops)
         return TraceSnapshot(self.prober.name, self.host, self.address, self.error, self.round,
-                             self.interval, self.paused, self.dest_ttl, hops, tuple(self.notes()),
-                             tuple(self.events))
+                             self.interval, self.base_interval, self.paused, self.dest_ttl, hops,
+                             tuple(self.notes()), tuple(self.events))
 
     def _new_hop(self, ttl: int) -> Hop:
         return Hop(ttl, RollingStats(self.window))

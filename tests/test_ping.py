@@ -173,3 +173,33 @@ async def test_cancelling_run_drops_the_probes_in_flight():
         await task
     await asyncio.sleep(0.15)
     assert session.targets[0].stats.sent == 0
+
+
+def test_slower_and_faster_step_through_the_intervals_but_not_below_the_start():
+    session = PingSession([HOST], FakeProber(), interval=1.0)
+    assert [session.slower() for _ in range(7)] == [2, 5, 10, 15, 30, 60, 60]
+    assert [session.faster() for _ in range(7)] == [30, 15, 10, 5, 2, 1, 1]
+    quick = PingSession([HOST], FakeProber(), interval=0.3)
+    assert (quick.faster(), quick.slower(), quick.slower(), quick.faster(), quick.faster()) == \
+           (0.3, 1, 2, 1, 0.3)
+    slow = PingSession([HOST], FakeProber(), interval=90)
+    assert (slow.slower(), slow.faster()) == (90, 90)
+    with pytest.raises(ValueError):
+        session.set_interval(0)
+
+
+async def test_a_shorter_interval_counts_at_once_not_after_the_old_one():
+    session = PingSession([HOST], prober_for(FakeHop(HOST, 1.0)), interval=30, timeout=0.5)
+    task = asyncio.create_task(session.run())
+    await asyncio.sleep(0.05)
+    assert session.targets[0].stats.sent == 1  # and the next one is 30 s away
+    session.set_interval(0.02)
+    await asyncio.sleep(0.15)
+    assert session.targets[0].stats.sent >= 4
+    session.set_interval(30)
+    await asyncio.sleep(0.05)
+    sent = session.targets[0].stats.sent
+    await asyncio.sleep(0.15)
+    assert session.targets[0].stats.sent == sent
+    session.stop()
+    await asyncio.wait_for(task, 1.0)

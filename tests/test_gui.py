@@ -9,6 +9,7 @@ pytest.importorskip("pyqtgraph")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # before the QApplication exists
 
 from PySide6.QtCore import QObject, Qt  # noqa: E402
+from PySide6.QtGui import QShortcut  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -163,6 +164,35 @@ def test_pause_holds_the_probes_and_resume_takes_them_up(window):
     view.pause_button.click()
     until(lambda: len(prober.probes) >= sent + 5)
     until(lambda: not view.snapshot.paused)
+
+
+def test_plus_and_minus_probe_the_tab_on_show_less_or_more_often(window):
+    w = window(hosts=("example.com",))
+    view = w.ping_view
+    until(lambda: view.snapshot is not None)
+    assert not view.faster_button.isEnabled()
+    keys = {shortcut.key().toString() for shortcut in w.findChildren(QShortcut)}
+    assert {"+", "=", "-", "Ctrl+=", "Ctrl++", "Ctrl+-"} <= keys
+    w.show()
+    assert QTest.qWaitForWindowActive(w)  # shortcuts only fire in the active window
+    view.table.setFocus()
+    QTest.keyClick(view.table, Qt.Key.Key_Plus)
+    until(lambda: view.snapshot.interval == 1.0)
+    assert view.faster_button.isEnabled() and "every 1s" in view.status.text()
+    view.slower_button.click()
+    until(lambda: view.snapshot.interval == 2.0)
+    QTest.keyClick(view.entry, Qt.Key.Key_Minus)  # typing in the host box: it's text there
+    assert view.entry.text() == "-"
+    spin(0.2)
+    assert view.snapshot.interval == 2.0
+    for _ in range(3):
+        w.faster()
+    until(lambda: view.snapshot.interval == 0.02)  # and no lower: where it started
+    assert not view.faster_button.isEnabled()
+    w.tabs.setCurrentWidget(w.settings_view)
+    w.slower()  # the settings tab has no probes to slow down
+    spin(0.2)
+    assert view.snapshot.interval == 0.02
 
 
 def test_closing_the_window_stops_the_sessions_and_the_loop(window):

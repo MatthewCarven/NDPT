@@ -56,6 +56,7 @@ class TargetSnapshot:
 class PingSnapshot:
     prober: str
     interval: float
+    base_interval: float      # what it started with: faster() goes no lower
     paused: bool
     targets: tuple[TargetSnapshot, ...]
 
@@ -91,6 +92,7 @@ class TraceSnapshot:
     error: str | None
     round: int
     interval: float
+    base_interval: float
     paused: bool
     dest_ttl: int | None
     hops: tuple[HopSnapshot, ...]  # the visible ones

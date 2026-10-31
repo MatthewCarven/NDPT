@@ -15,6 +15,7 @@ from ndpt.core.resolve import Resolver
 log = logging.getLogger(__name__)
 
 MAX_PAYLOAD = 65500  # the most the Windows ICMP API accepts
+INTERVAL_STEPS = (1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0)  # what slower() and faster() step through
 
 
 class Session:
@@ -23,8 +24,9 @@ class Session:
     - read its state (targets / hops and their stats) on their own refresh timer;
     - add a listener to hear each result as it lands (called on the session's loop).
 
-    `stop()`, `pause()` and `resume()` must be called on the session's own loop;
-    from another thread use `loop.call_soon_threadsafe(session.stop)`.
+    `stop()`, `pause()`, `resume()`, `slower()`, `faster()` and `set_interval()`
+    must be called on the session's own loop; from another thread use
+    `loop.call_soon_threadsafe(session.stop)`.
     """
 
     def __init__(self, prober: Prober, *, resolver: Resolver | None, family: int,
@@ -39,10 +41,13 @@ class Session:
         self.resolver = resolver or Resolver()
         self.family = family if family is not None else socket.AF_UNSPEC
         self.interval = interval
+        self.base_interval = interval  # faster() goes no lower than this
         self.timeout = timeout
         self.size = size
         self.window = window
         self._stop = asyncio.Event()
+        self._wake = asyncio.Event()   # set by stop(); pulsed by set_interval()
+        self._retimes = 0              # how many times the interval has changed
         self._resumed = asyncio.Event()
         self._resumed.set()
 
@@ -56,6 +61,7 @@ class Session:
 
     def stop(self) -> None:
         self._stop.set()
+        self._wake.set()     # end any sleep
         self._resumed.set()  # wake anything held by pause()
 
     def pause(self) -> None:
@@ -65,6 +71,34 @@ class Session:
 
     def resume(self) -> None:
         self._resumed.set()
+
+    def set_interval(self, seconds: float) -> None:
+        """Change the time between beats, from the beat already sent: a session
+        waiting out a long interval doesn't finish that wait before speeding up."""
+        if seconds <= 0:
+            raise ValueError("interval must be positive")
+        self.interval = seconds
+        self._retimes += 1
+        self._wake.set()  # a pulse: whoever is sleeping now wakes and looks again
+        if not self._stop.is_set():
+            self._wake.clear()
+
+    def slower(self) -> float:
+        """A step longer between beats (see INTERVAL_STEPS), up to a minute. Returns the new interval."""
+        longer = [s for s in self._steps() if s > self.interval]
+        if longer:
+            self.set_interval(longer[0])
+        return self.interval
+
+    def faster(self) -> float:
+        """A step shorter between beats, but never below the interval the session started with."""
+        shorter = [s for s in self._steps() if s < self.interval]
+        if shorter:
+            self.set_interval(shorter[-1])
+        return self.interval
+
+    def _steps(self) -> list[float]:
+        return sorted({self.base_interval, *(s for s in INTERVAL_STEPS if s > self.base_interval)})
 
     async def _hold(self) -> bool:
         """Wait while paused. True if a stop was asked for meanwhile.
@@ -80,7 +114,7 @@ class Session:
 
         Always yields to the loop, even when behind schedule (delay <= 0, easy
         with Windows' ~15 ms timer), so probes already in flight get to land
-        before the next beat sends more.
+        before the next beat sends more. A change of interval ends it early.
         """
         if self._stop.is_set():
             return True
@@ -89,10 +123,26 @@ class Session:
         else:
             try:
                 async with asyncio.timeout(delay):
-                    await self._stop.wait()
+                    await self._wake.wait()
             except TimeoutError:
                 pass
         return self._stop.is_set()
+
+    async def _next_beat(self, due: float) -> float | None:
+        """Wait for the beat after the one due at `due` (loop time) and return when that is,
+        or None if a stop was asked for meanwhile.
+
+        A late beat goes at once, with no burst of catching up. An interval
+        changed during the wait counts from `due` straight away.
+        """
+        loop = asyncio.get_running_loop()
+        while True:
+            retimes = self._retimes
+            next_due = max(due + self.interval, loop.time())  # fell behind: carry on, don't burst
+            if await self._sleep(next_due - loop.time()):
+                return None
+            if self._retimes == retimes:
+                return next_due
 
     async def _probe(self, dest: str, ttl: int) -> ProbeResult:
         """One probe that always returns a result: a prober bug becomes an ERROR, not a lost task."""

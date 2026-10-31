@@ -166,3 +166,16 @@ async def test_cancelling_run_drops_the_probes_in_flight():
         await task
     await asyncio.sleep(0.15)
     assert all(hop.stats.sent == 0 for hop in session.hops)
+
+
+async def test_a_trace_speeds_up_at_once_when_told_to():
+    session = TraceSession(DEST, FakeProber({DEST: five_hops()}), interval=30, timeout=0.5,
+                           stagger=0.0, lookup_names=False)
+    task = asyncio.create_task(session.run())
+    await asyncio.sleep(0.05)
+    assert session.round == 1  # and round 2 is 30 s away
+    session.set_interval(0.02)
+    await asyncio.sleep(0.15)
+    assert session.round >= 4
+    session.stop()
+    await asyncio.wait_for(task, 1.0)

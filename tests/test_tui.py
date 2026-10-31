@@ -67,6 +67,20 @@ async def test_a_adds_hosts_and_d_removes_the_highlighted_one():
         await until(pilot, lambda: len(column(app, "host")) == 2)
 
 
+async def test_plus_and_minus_probe_less_or_more_often_but_not_faster_than_the_start():
+    app = make_app()
+    async with app.run_test(size=SIZE) as pilot:
+        session = app.ping_screen.session
+        await pilot.press("plus")
+        assert session.interval == 1.0 and "every 1s" in app.screen.sub_title
+        await pilot.press("equals_sign")  # + without shift
+        assert session.interval == 2.0
+        await pilot.press("minus", "minus")
+        assert session.interval == 0.02
+        await pilot.press("minus")
+        assert session.interval == 0.02 and "every 0.02s" in app.screen.sub_title
+
+
 async def test_escape_leaves_the_host_list_alone():
     app = make_app()
     async with app.run_test(size=SIZE) as pilot:

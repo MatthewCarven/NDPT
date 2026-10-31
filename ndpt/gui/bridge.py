@@ -82,6 +82,12 @@ class Runner(QObject):
     def resume(self) -> None:
         self._on_loop(Session.resume)
 
+    def slower(self) -> None:
+        self._on_loop(Session.slower)
+
+    def faster(self) -> None:
+        self._on_loop(Session.faster)
+
     def _on_loop(self, fn: Callable[..., Any], *args: Any) -> None:
         """Call `fn(session, *args)` on the loop thread, then send a fresh snapshot."""
         def run() -> None:

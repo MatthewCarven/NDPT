@@ -12,7 +12,7 @@ from ndpt.gui.bridge import Engine, Settings, TraceRunner
 from ndpt.gui.charts import HopChart, LatencyChart
 from ndpt.gui.route_graph import RouteGraph
 from ndpt.gui.theme import Theme
-from ndpt.gui.widgets import dot, last_text, number_table, set_cell
+from ndpt.gui.widgets import dot, last_text, number_table, pace_buttons, set_cell
 from ndpt.textviz import fmt_ms, host_label
 
 COLUMNS = ("#", "Host", "Loss", "Sent", "Last", "Avg", "Best", "Worst", "StDev", "Jitter")
@@ -53,6 +53,7 @@ class TraceView(QWidget):
         self.pause_button = QPushButton("Pause")
         self.pause_button.setCheckable(True)
         self.pause_button.toggled.connect(self._pause)
+        self.slower_button, self.faster_button = pace_buttons(self.slower, self.faster)
         self.status = QLabel()
         self.cannot = QLabel()  # why this prober can't trace, instead of hiding the tab
         self.cannot.setWordWrap(True)
@@ -64,6 +65,8 @@ class TraceView(QWidget):
         bar.addWidget(self.entry, 1)
         bar.addWidget(self.start_button)
         bar.addWidget(self.pause_button)
+        bar.addWidget(self.slower_button)
+        bar.addWidget(self.faster_button)
         bar.addWidget(self.status, 2)
 
         self.table = number_table(COLUMNS, stretch=1)
@@ -169,11 +172,23 @@ class TraceView(QWidget):
             (self.runner.pause if paused else self.runner.resume)()
         self.pause_button.setText("Resume" if paused else "Pause")
 
+    def slower(self) -> None:
+        if self.runner is not None:
+            self.runner.slower()
+
+    def faster(self) -> None:
+        if self.runner is not None:
+            self.runner.faster()
+
     def _buttons(self) -> None:
         running = self.runner is not None
         self.start_button.setText("Stop" if running else "Start")
         self.start_button.setEnabled(running or self.can_trace() is None)
         self.pause_button.setEnabled(running)
+        self.slower_button.setEnabled(running)
+        snapshot = self.snapshot
+        self.faster_button.setEnabled(running and snapshot is not None
+                                      and snapshot.interval > snapshot.base_interval)
 
     def _finished(self, runner: TraceRunner) -> None:
         if runner is self.runner:  # it ended by itself: a name that won't resolve
@@ -257,6 +272,7 @@ class TraceView(QWidget):
             target += f" ({snapshot.address})"
         paused = ", paused" if snapshot.paused else ""
         self.status.setText(f"to {target}, round {snapshot.round}, every {snapshot.interval:g}s{paused}")
+        self._buttons()  # Faster, once there's an interval to come back down from
 
     def _fill_table(self, snapshot: TraceSnapshot) -> None:
         table, theme = self.table, self.theme

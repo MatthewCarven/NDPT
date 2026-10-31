@@ -51,6 +51,8 @@ reading the trace (see below). Both keep running while the other is on show.
 | `h` | latency history of the highlighted host | |
 | `d` / `Delete` | stop pinging the highlighted host | |
 | `space` | pause / resume this screen's probes | pause / resume |
+| `+` (or `=`) | probe less often: 2, 5, 10, 15, 30, then 60 s apart | the same, between rounds |
+| `-` | probe more often again, down to the interval it started with | the same |
 | `q` / `Ctrl+C` | quit | quit |
 
 `-i`, `-W`, `-s`, `-4`/`-6`, `-m` and `-n` work as for `ping` and `trace`.
@@ -89,6 +91,11 @@ Both tabs keep probing while the other is showing.
 - **Settings:** interval, timeout, payload, max hops, IPv4/IPv6, ICMP or TCP
   with a port. Apply restarts the probes. TCP can't trace: while it's chosen,
   the trace tab says so.
+
+`+` (or `=`) and `-` slow down and speed up the tab on show, as in the TUI, and
+so do its Slower and Faster buttons. Faster goes no lower than the interval in
+Settings. While you're typing in a host box, `+` and `-` are just text there:
+use `Ctrl+=` and `Ctrl+-` instead.
 
 The GUI follows Windows' light or dark mode.
 

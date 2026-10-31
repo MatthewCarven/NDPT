@@ -62,7 +62,7 @@ class PingSession(Session):
         """A frozen copy of every host's state, for another thread. Call it on the session's loop."""
         targets = tuple(TargetSnapshot(id(t), t.name, t.address, t.error, t.last_status,
                                        StatsSnapshot.of(t.stats)) for t in self.targets)
-        return PingSnapshot(self.prober.name, self.interval, self.paused, targets)
+        return PingSnapshot(self.prober.name, self.interval, self.base_interval, self.paused, targets)
 
     async def run(self) -> None:
         async with asyncio.TaskGroup() as group:
@@ -122,8 +122,8 @@ class PingSession(Session):
                 sent += 1
                 if self.count is not None and sent >= self.count:
                     break
-                next_at = max(next_at + self.interval, loop.time())  # fell behind: carry on, don't burst
-                if await self._sleep(next_at - loop.time()):
+                next_at = await self._next_beat(next_at)
+                if next_at is None:
                     break
             await self._finish(inflight)
         except asyncio.CancelledError:

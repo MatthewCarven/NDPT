@@ -23,9 +23,14 @@ HOST_WIDTH = 36     # the most a host column takes before the history column get
 
 
 class SessionScreen(Screen):
-    """A screen over one live session: redraws on a timer while it's showing, pauses on space."""
+    """A screen over one live session: redraws on a timer while it's showing, pauses on space,
+    and probes less or more often on + and - (never more often than it started)."""
 
-    BINDINGS = [Binding("space", "toggle_pause", "Pause")]
+    BINDINGS = [
+        Binding("space", "toggle_pause", "Pause"),
+        Binding("plus,equals_sign", "slower", "Slower", key_display="+"),  # = is + without shift
+        Binding("minus", "faster", "Faster", key_display="-"),
+    ]
 
     session: Session | None = None
 
@@ -53,6 +58,23 @@ class SessionScreen(Screen):
             self.session.resume()
         else:
             self.session.pause()
+        self.refresh_view()
+
+    def action_slower(self) -> None:
+        self._pace(slower=True)
+
+    def action_faster(self) -> None:
+        self._pace(slower=False)
+
+    def _pace(self, slower: bool) -> None:
+        session = self.session
+        if session is None:
+            return
+        before = session.interval
+        after = session.slower() if slower else session.faster()
+        if after == before:
+            limit = "a minute or more" if slower else "the interval it started with"
+            self.notify(f"every {after:g}s is already {limit}", timeout=3)
         self.refresh_view()
 
 
