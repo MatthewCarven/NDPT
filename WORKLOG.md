@@ -250,3 +250,24 @@ to where it started, and for a build script for the TUI and GUI.
 
 **Ideas:** Matthew asked what else people would want in a tool like this; the list is in
 TODO.md under "Ideas".
+
+## 2026-10-31: GitHub builds and releases the exes
+
+Matthew asked whether to upload the exes or have GitHub build them. NDPT's repo
+is public, so Actions costs nothing: `.github/workflows/build.yml` runs on
+windows-latest with Python 3.14, runs the tests (not the `network` ones, which
+send real ICMP), builds both exes with `packaging/build.py`, and keeps them as a
+run artifact for 14 days. A `v*` tag also makes a GitHub Release with the exes
+attached, after checking the tag matches `pyproject.toml` and `ndpt.__version__`;
+the notes are `packaging/release-notes.md` (what each exe is, and getting past
+SmartScreen) plus GitHub's generated list of changes.
+
+**Checked:** the first run failed one TUI test that slept 0.3 s "for a redraw"
+and read the table before GitHub's slower machine had redrawn. It and two
+history tests now wait for what they check. The second run passed (2 min 36 s);
+its exes, downloaded here, run: `ndpt-tui.exe --help`, and `ndpt-gui.exe --demo`
+opens in 2.9 s and closes cleanly. `upload-artifact` moved from v4 to v7, which
+runs on Node 24 rather than the retiring Node 20.
+
+**Not done:** no release yet; tagging one (and bumping the version first, or not)
+is Matthew's call.

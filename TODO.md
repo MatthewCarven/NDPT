@@ -73,6 +73,8 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 - [ ] `e` in the TUI exports what's on screen, once the formats exist.
 - [x] PyInstaller build: `build.cmd` makes `dist\ndpt-tui.exe` and `dist\ndpt-gui.exe`
       (`packaging/build.py`). Done 2026-10-31.
+- [x] GitHub builds them too, and releases them on a `v*` tag (`.github/workflows/build.yml`).
+      Done 2026-10-31. The first release (`v0.1.0`, or bump first) is Matthew's call.
 - [ ] Version info in the exes (File > Properties > Details shows nothing yet): PyInstaller's
       `--version-file`.
 

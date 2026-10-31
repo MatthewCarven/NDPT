@@ -117,6 +117,21 @@ it's a folder to carry around rather than one file.
 For an icon, save a square PNG (256x256 or bigger) as `ndpt\gui\icon.png` and
 build again: both exes get it, and so does the GUI's window and taskbar button.
 
+#### Releases, built by GitHub
+
+GitHub builds the exes too (`.github/workflows/build.yml`, on a Windows machine):
+
+- **A release:** bump the version in `pyproject.toml` and `ndpt/__init__.py`, commit, then
+  tag and push: `git tag v0.2.0`, `git push origin v0.2.0`. GitHub runs the tests, builds
+  both exes, and makes a Release with them attached, notes from
+  `packaging/release-notes.md` and a list of the changes. A tag that doesn't match the
+  version stops the build before anything is released.
+- **Just a build:** Actions tab, *build*, *Run workflow*. The exes are on the run's page
+  (*Artifacts*) for 14 days.
+
+The exes aren't code-signed, so Windows SmartScreen warns the first time they're run
+("More info", then "Run anyway"). The release notes say so.
+
 ### Reading a trace
 
 Routers answer traceroute probes as a low-priority chore, and rate-limit those

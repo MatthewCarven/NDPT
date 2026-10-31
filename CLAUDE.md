@@ -68,6 +68,10 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   themselves only when first used. From PowerShell, run it as `& .\build.cmd`: `cmd /c
   build.cmd` couldn't find it in this folder. It ends with `pause`, which returns at once
   when stdin isn't a console.
+- **GitHub Actions builds the exes** (`.github/workflows/build.yml`, windows-latest, Python
+  3.14): tests without the `network` marker, then `packaging/build.py`. A `v*` tag also makes
+  a Release, but only if the tag matches `pyproject.toml` and `ndpt.__version__`. A release is
+  public: tag only when Matthew says so. `gh workflow run build.yml` builds without releasing.
 - **`Session.set_interval` wakes sleeping beats** (`_wake` is pulsed, `_next_beat` re-reads the
   interval), so speeding up from 60 s doesn't wait out the 60 s. `faster()` stops at
   `base_interval`, what the session was made with.
