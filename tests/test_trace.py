@@ -114,6 +114,23 @@ async def test_no_notes_when_the_loss_carries_through_to_the_destination():
     assert session.notes() == []
 
 
+
+async def test_the_text_tables_dim_what_stops_at_a_hop_and_colour_what_carries_on():
+    from ndpt.core.snapshot import carried_on
+    from ndpt.textviz import hop_numbers
+
+    route = [FakeHop("192.168.1.1", 1.0), FakeHop("192.0.2.2", rtts=[40.0, None]),  # rate-limits, slow
+             FakeHop("192.0.2.3", 8.0), FakeHop(DEST, rtts=[10.0, 10.0, 10.0, None])]  # really loses
+    session = TraceSession(DEST, FakeProber({DEST: route}), rounds=12, **FAST)
+    await session.run()
+    hops = session.visible_hops
+    rows = [hop_numbers(hop, carried) for hop, carried in zip(hops, carried_on(hops))]
+    loss, avg = [row[0] for row in rows], [row[3] for row in rows]
+    assert [cell.style for cell in loss] == ["green", "dim", "green", "red"]
+    assert hops[1].stats.loss_pct >= 40 and str(loss[1]) == f"{hops[1].stats.loss_pct:.1f}%"
+    assert avg[1].style == "dim" and str(avg[1]) == "40.0"
+    assert all(isinstance(avg[i], str) for i in (0, 2, 3))  # plain, as before
+
 async def test_looks_up_hop_names_in_the_background():
     session = TraceSession(DEST, FakeProber({DEST: five_hops()}), resolver=DemoResolver(), rounds=1,
                            interval=0.001, timeout=0.5, stagger=0.0)

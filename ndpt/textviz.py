@@ -11,6 +11,7 @@ from ndpt.core.models import ProbeStatus
 
 if TYPE_CHECKING:
     from ndpt.core.models import Hop
+    from ndpt.core.snapshot import Carried
     from ndpt.core.trace import TraceSession
 
 BLOCKS = "▁▂▃▄▅▆▇█"
@@ -105,6 +106,23 @@ def hop_label(hop: Hop, session: TraceSession) -> Text | str:
 
 def loss_cell(sent: int, pct: float) -> Text | str:
     return Text(f"{pct:.1f}%", style=loss_style(pct)) if sent else "-"
+
+
+def hop_numbers(hop: Hop, carried: Carried) -> list[Text | str]:
+    """A trace hop's Loss, Sent, Last, Avg, Best, Worst and StDev.
+
+    Loss and Avg are dim when they stop at this hop (see `carried_on`): that's the
+    router answering traceroute slowly or rate-limited, not what it does to traffic,
+    so it isn't painted red. So is the loss of a hop that never answers.
+    """
+    s = hop.stats
+    if s.sent and (not s.received or carried.loss_stops_here):
+        loss: Text | str = Text(f"{s.loss_pct:.1f}%", style="dim")
+    else:
+        loss = loss_cell(s.sent, s.loss_pct)
+    avg = Text(fmt_ms(s.avg), style="dim") if carried.slow_to_reply else fmt_ms(s.avg)
+    return [loss, str(s.sent), last_cell(hop.last_status, s.last), avg,
+            fmt_ms(s.best), fmt_ms(s.worst), fmt_ms(s.stdev)]
 
 
 def last_cell(status: ProbeStatus | None, last_rtt: float | None, echo_only: bool = False) -> Text | str:

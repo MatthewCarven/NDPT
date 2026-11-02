@@ -108,8 +108,9 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       to the table alone past some count.
 - [ ] TUI: `--tcp` isn't offered (a TCP prober can't trace). The ping screen could take it,
       with the trace screen saying why it can't.
-- [ ] TUI: colour the trace screen's loss with `core.snapshot.carried_on()`, as the GUI does,
-      so a hop whose loss stops there isn't red. The TUI only has the notes today.
+- [x] TUI: colour the trace screen's loss with `core.snapshot.carried_on()`, as the GUI does,
+      so a hop whose loss stops there isn't red. Done 2026-11-02, in the CLI's live trace too
+      (`textviz.hop_numbers`): that loss, and the average of a hop slow to reply, are dim.
 - [ ] GUI: a `startgui.cmd` (with `pythonw`, so no console window), like `starttui.cmd`.
 - [ ] GUI: the trace tab's redraw measured 30-47 ms in a real window, against ~9 ms offscreen.
       Not understood; a guess is GIL contention with the probe threads. The window stays

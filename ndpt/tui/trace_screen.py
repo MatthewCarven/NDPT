@@ -13,8 +13,9 @@ from textual.widgets import DataTable, Footer, Header, Static
 from ndpt.core.backends import Prober
 from ndpt.core.models import Hop
 from ndpt.core.resolve import Resolver
+from ndpt.core.snapshot import carried_on
 from ndpt.core.trace import TraceSession
-from ndpt.textviz import fmt_ms, hop_label, host_label, last_cell, loss_cell
+from ndpt.textviz import hop_label, hop_numbers, host_label
 from ndpt.tui.widgets import (MAX_HISTORY, HistoryScreen, HostPrompt, SessionScreen, cell, heading,
                               share_width, spark)
 
@@ -121,11 +122,10 @@ class TraceScreen(SessionScreen):
         host_width, history = share_width(table.scrollable_content_region.width, fixed,
                                           len(NUMBERS) + 3, longest, MAX_HISTORY)
         columns = ["ttl", "host", *(name for name, _ in NUMBERS), "history"]
-        for hop, label in zip(hops, labels):
+        for hop, label, carried in zip(hops, labels, carried_on(hops)):
             s = hop.stats
             style = "bold" if hop.ttl == session.dest_ttl else ""
-            numbers = [loss_cell(s.sent, s.loss_pct), str(s.sent), last_cell(hop.last_status, s.last),
-                       fmt_ms(s.avg), fmt_ms(s.best), fmt_ms(s.worst), fmt_ms(s.stdev)]
+            numbers = hop_numbers(hop, carried)
             cells = [cell(Text(str(hop.ttl), style=style), justify="right"),
                      cell(Text(label, style=style) if isinstance(label, str) else label, host_width),
                      *(cell(n, justify="right") for n in numbers),

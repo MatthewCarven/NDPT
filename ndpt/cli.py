@@ -21,8 +21,9 @@ from ndpt.core.backends.fake import DemoResolver, FakeProber, demo_route
 from ndpt.core.ping import PingSession
 from ndpt.core.resolve import Resolver
 from ndpt.core.session import MAX_PAYLOAD, Session
+from ndpt.core.snapshot import carried_on
 from ndpt.core.trace import TraceSession
-from ndpt.textviz import fmt_ms, hop_label, host_label, last_cell, loss_cell, sparkline
+from ndpt.textviz import fmt_ms, hop_label, hop_numbers, host_label, last_cell, loss_cell, sparkline
 
 HISTORY = 30          # samples in each row's sparkline
 MIN_INTERVAL = 0.1    # for real probes, so a typo can't flood the network
@@ -280,13 +281,11 @@ def trace_view(session: TraceSession, ascii_only: bool = False, width: int = 120
     _number_columns(table, numbers)
     if history:
         table.add_column("History", no_wrap=True, min_width=history)
-    for hop in session.visible_hops:
-        s = hop.stats
-        cells = [str(hop.ttl), hop_label(hop, session),
-                 loss_cell(s.sent, s.loss_pct), str(s.sent), last_cell(hop.last_status, s.last),
-                 fmt_ms(s.avg), fmt_ms(s.best), fmt_ms(s.worst), fmt_ms(s.stdev)]
+    hops = session.visible_hops
+    for hop, carried in zip(hops, carried_on(hops)):
+        cells = [str(hop.ttl), hop_label(hop, session), *hop_numbers(hop, carried)]
         if history:
-            cells.append(sparkline(s.recent()[-history:], ascii_only=ascii_only))
+            cells.append(sparkline(hop.stats.recent()[-history:], ascii_only=ascii_only))
         table.add_row(*cells, style="bold" if hop.ttl == session.dest_ttl else None)
     parts: list[RenderableType] = [table]
     parts += [Text(f"note: {note}", style="yellow") for note in session.notes()]

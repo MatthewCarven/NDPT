@@ -315,3 +315,19 @@ written. Downloaded from the release: `ndpt-tui.exe --help`; `ndpt-tui.exe --tra
 55% loss as rate-limiting); `ndpt-gui.exe --demo` opened in 4.3 s and closed cleanly.
 
 **Not checked:** the exes on a PC without Python, and without admin rights (TODO.md).
+
+## 2026-11-02: the TUI and CLI stop painting harmless loss red
+
+Matthew's README screenshot of the TUI showed hop 6 at 22.2% loss in red, though
+none of it carried on to the destination (the router rate-limits its replies; the
+note under the table said so). The GUI already greys such numbers using
+`core.snapshot.carried_on()`. Now the TUI's trace screen and the CLI's live trace do
+the same through one helper, `textviz.hop_numbers`: loss that stops at its hop, and
+the loss of a hop that never answers, are dim; so is the average of a hop that's
+only slow to reply. Loss that carries on keeps its green/yellow/red.
+
+**Checked:** new test `test_the_text_tables_dim_what_stops_at_a_hop_and_colour_what_carries_on`;
+126 pass. A real 15-round trace of 1.1.1.1: hop 6's 40% loss came out dim, every other
+hop green. (Rich printed no colour codes to a pipe even with FORCE_COLOR, so the check
+read the cells' styles from `hop_numbers` directly.) **Not seen:** the dim cells in a
+real terminal by eye.
