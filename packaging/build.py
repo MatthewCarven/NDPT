@@ -56,7 +56,23 @@ def build(target: str, onedir: bool) -> Path:
         if target == "gui":
             args += ["--add-data", f"{ICON}{os.pathsep}ndpt/gui"]
     PyInstaller.__main__.run(args)
-    return DIST / t["name"] / f"{t['name']}.exe" if onedir else DIST / f"{t['name']}.exe"
+    return exe_path(target, onedir)
+
+
+def exe_path(target: str, onedir: bool) -> Path:
+    name = TARGETS[target]["name"]
+    return DIST / name / f"{name}.exe" if onedir else DIST / f"{name}.exe"
+
+
+def in_use(exe: Path) -> bool:
+    """Whether Windows won't let the build replace `exe`: it's running, almost always."""
+    try:
+        with open(exe, "r+b"):
+            return False
+    except FileNotFoundError:
+        return False
+    except PermissionError:
+        return True
 
 
 def size(path: Path) -> str:
@@ -74,8 +90,16 @@ def main(argv: list[str] | None = None) -> int:
     unknown = [t for t in args.targets if t not in TARGETS]
     if unknown:
         parser.error(f"don't know how to build {', '.join(unknown)}: choose from tui, gui")
+    targets = args.targets or list(TARGETS)
+    # Check first: PyInstaller would only find out at the very end, with a traceback.
+    busy = [exe for exe in (exe_path(t, args.onedir) for t in targets) if in_use(exe)]
+    for exe in busy:
+        print(f"{exe.relative_to(ROOT)} is running, so it can't be replaced. "
+              f"Close it, then build again.", file=sys.stderr)
+    if busy:
+        return 1
     built = []
-    for target in args.targets or list(TARGETS):
+    for target in targets:
         print(f"building {TARGETS[target]['name']}...", flush=True)
         start = time.monotonic()
         exe = build(target, args.onedir)

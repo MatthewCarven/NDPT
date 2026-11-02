@@ -290,3 +290,12 @@ than its span, and never less than 10 s. A demo trace run 20 s at 0.2 s, then
 slowed to 10 s (span 1200 s), drew its 23 s of history across the whole chart in
 a windowed grab. New test: `test_a_young_history_fills_the_chart_and_an_old_one_scrolls`;
 125 pass.
+
+## 2026-11-02: build.cmd and a running exe
+
+Matthew's rebuild failed at the very end with `PermissionError: [WinError 5]` on
+`dist\ndpt-gui.exe`: the GUI he'd screenshotted was still running from it, and
+Windows won't delete a running exe (the TUI had rebuilt fine). `packaging/build.py`
+now checks each exe it's about to replace first, by opening it for writing, and
+stops with "dist\ndpt-gui.exe is running, so it can't be replaced. Close it, then
+build again." Tried with the GUI running: it stopped at once, exit code 1.

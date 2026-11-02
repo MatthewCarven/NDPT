@@ -67,7 +67,8 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   every submodule of textual and rich (`--collect-submodules`): both import parts of
   themselves only when first used. From PowerShell, run it as `& .\build.cmd`: `cmd /c
   build.cmd` couldn't find it in this folder. It ends with `pause`, which returns at once
-  when stdin isn't a console.
+  when stdin isn't a console. Windows won't replace a running exe, so it
+  checks first and says which to close (Matthew runs the GUI from `dist\`).
 - **GitHub Actions builds the exes** (`.github/workflows/build.yml`, windows-latest, Python
   3.14): tests without the `network` marker, then `packaging/build.py`. A `v*` tag also makes
   a Release, but only if the tag matches `pyproject.toml` and `ndpt.__version__`. A release is
