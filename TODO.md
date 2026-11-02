@@ -76,7 +76,10 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 - [x] PyInstaller build: `build.cmd` makes `dist\ndpt-tui.exe` and `dist\ndpt-gui.exe`
       (`packaging/build.py`). Done 2026-10-31.
 - [x] GitHub builds them too, and releases them on a `v*` tag (`.github/workflows/build.yml`).
-      Done 2026-10-31. The first release (`v0.1.0`, or bump first) is Matthew's call.
+      Done 2026-10-31.
+- [x] **First release: v0.1.0**, 2026-11-02, on Matthew's say-so:
+      https://github.com/MatthewCarven/NDPT/releases/tag/v0.1.0. Next time: bump the version
+      in `pyproject.toml` and `ndpt/__init__.py`, commit, tag, push the tag (README has it).
 - [ ] Version info in the exes (File > Properties > Details shows nothing yet): PyInstaller's
       `--version-file`.
 

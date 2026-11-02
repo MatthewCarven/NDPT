@@ -299,3 +299,19 @@ Windows won't delete a running exe (the TUI had rebuilt fine). `packaging/build.
 now checks each exe it's about to replace first, by opening it for writing, and
 stops with "dist\ndpt-gui.exe is running, so it can't be replaced. Close it, then
 build again." Tried with the GUI running: it stopped at once, exit code 1.
+
+## 2026-11-02: v0.1.0, the first release
+
+Matthew added two screenshots to the README (`docs/images/`) and asked for a
+release. Before tagging: a download link near the top of the README (to
+`releases/latest`), and a line at the top of `packaging/release-notes.md` saying
+what NDPT is. 125 tests passed; the version was already 0.1.0 in both places.
+Tagged `v0.1.0` (annotated) on 7a84e6a and pushed the tag.
+
+**Checked:** the release build passed (2 min 51 s) and published "NDPT v0.1.0"
+with both exes (ndpt-gui.exe 70 MB, ndpt-tui.exe 24 MB), marked latest, notes as
+written. Downloaded from the release: `ndpt-tui.exe --help`; `ndpt-tui.exe --trace
+1.1.1.1` in the Terminal panel traced 8 hops with real probes (and explained hop 6's
+55% loss as rate-limiting); `ndpt-gui.exe --demo` opened in 4.3 s and closed cleanly.
+
+**Not checked:** the exes on a PC without Python, and without admin rights (TODO.md).
