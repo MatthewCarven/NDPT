@@ -4,6 +4,9 @@ Ping hosts and trace routes, live. One engine, with three front ends: a
 command line, a terminal UI and a desktop GUI. See [PLAN.md](PLAN.md) for the
 design and the phases.
 
+![NDPT's GUI tracing www.google.com](docs/images/ndpt-gui-trace.png)
+![NDPT's TUI tracing www.google.com](docs/images/ndpt-tui-trace.png)
+
 ## Setup
 
 ```
