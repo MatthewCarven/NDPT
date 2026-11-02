@@ -116,10 +116,10 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       them ran over 50 ms. Watch for it.
 - [ ] GUI: the route diagram scrolls sideways past ~8 hops at 1280 px. Fit to width, or wrap
       long routes onto a second row?
-- [ ] GUI: after Slower, the over-time charts span 120 probes at the new pace (20 minutes at
-      10 s), so a short history is squeezed against the right edge (Matthew's trace screenshot,
-      2026-11-02). Start the x axis at the first sample until the history fills the span
-      (`charts.LatencyChart._scroll`).
+- [x] GUI: after Slower, the over-time charts span 120 probes at the new pace (20 minutes at
+      10 s), so a short history was squeezed against the right edge (Matthew's trace screenshot,
+      2026-11-02). The x axis now starts at the first probe until the history fills the span
+      (`charts.LatencyChart._scroll`). Fixed 2026-11-02.
 - [ ] GUI: no hover readout on the charts (a crosshair with the time and value); the tables
       carry the numbers for now.
 - [ ] GUI: closing while router-name lookups run leaves the process alive for a few seconds:

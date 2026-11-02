@@ -409,6 +409,26 @@ def test_a_lost_probe_is_marked_in_the_gap_of_its_own_line():
     assert lost_ticks([(1, None), (2, None)]) == [(1, 0.0), (2, 0.0)]  # never answered: the baseline
 
 
+def test_a_young_history_fills_the_chart_and_an_old_one_scrolls(qapp):
+    from ndpt.gui.charts import LatencyChart
+    from ndpt.gui.theme import DARK
+
+    chart = LatencyChart(DARK, "test", span=1200.0)  # 120 probes at 10 s
+    now = time.time()
+
+    def width(history):
+        chart.set_series([("host", "#ffffff", history)])
+        left, right = chart.viewRange()[0]
+        assert right == pytest.approx(time.time(), abs=0.5)  # newest on the right
+        return right - left
+
+    assert width([(now - 180 + 10 * i, 20.0) for i in range(18)]) == pytest.approx(180 * 1.03, rel=0.01)
+    assert width([(now - 3600 + 10 * i, 20.0) for i in range(360)]) == pytest.approx(1200)
+    assert width([(now - 1, None)]) == pytest.approx(10.0)  # one lost probe: the least it shows
+    assert width([]) == pytest.approx(1200)  # nothing yet
+    chart.deleteLater()
+
+
 def test_a_runner_waits_for_start_so_a_session_that_fails_at_once_is_still_heard(qapp):
     engine = Engine(FakeProber(route_factory=demo_route), StubResolver(), refresh=REFRESH)
     heard = []

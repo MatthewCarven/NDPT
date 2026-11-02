@@ -283,3 +283,10 @@ putting the pictures in the README.
 **Seen in the GUI's picture:** the hop's "ms over time" chart showed ~20 minutes
 (120 probes at 10 s) with only a few minutes of data, squeezed against its right
 edge. Added to TODO.md; not fixed yet.
+
+**Fixed the same day:** `LatencyChart` (the ping tab's chart and the trace tab's
+hop history) now shows from its oldest probe to now while the history is shorter
+than its span, and never less than 10 s. A demo trace run 20 s at 0.2 s, then
+slowed to 10 s (span 1200 s), drew its 23 s of history across the whole chart in
+a windowed grab. New test: `test_a_young_history_fills_the_chart_and_an_old_one_scrolls`;
+125 pass.

@@ -14,6 +14,7 @@ from ndpt.core.snapshot import Carried, HopSnapshot
 from ndpt.gui.theme import Theme
 
 SCROLL_MS = 100  # how often a live chart moves along
+MIN_SPAN = 10.0  # seconds: the least a live chart shows, however young its history
 
 
 def style(widget: pg.PlotWidget, theme: Theme, title: str, left: str,
@@ -82,6 +83,7 @@ class LatencyChart(pg.PlotWidget):
         super().__init__(background=theme.surface, axisItems={"bottom": ClockAxis("bottom")})
         self.theme = theme
         self.span = span
+        self._first: float | None = None  # when the oldest probe shown was sent
         style(self, theme, title, "ms")
         self.curves: dict[Hashable, pg.PlotDataItem] = {}
         self.lost = pg.ScatterPlotItem(symbol="|", size=18, pen=pg.mkPen(theme.critical, width=2),
@@ -119,10 +121,20 @@ class LatencyChart(pg.PlotWidget):
             shown += [rtt for t, rtt in history if rtt is not None and t >= since]
         self.lost.setData([t for t, _ in lost], [y for _, y in lost])
         self.setYRange(0, top_of(shown), padding=0)
+        self._first = min((t for _, _, history in series for t, _ in history), default=None)
+        self._scroll()
 
     def _scroll(self) -> None:
+        """The last `span` seconds, or from the first probe while the history is shorter.
+
+        After Slower the span is 120 probes at the new pace (20 minutes at 10 s), and a
+        history a few minutes old would otherwise be squeezed against the right edge.
+        """
         now = time.time()
-        self.setXRange(now - self.span, now, padding=0)
+        shown = self.span
+        if self._first is not None:
+            shown = min(shown, max(MIN_SPAN, (now - self._first) * 1.03))  # room for the first dot
+        self.setXRange(now - shown, now, padding=0)
 
 
 class HistogramChart(pg.PlotWidget):
