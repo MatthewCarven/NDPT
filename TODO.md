@@ -57,9 +57,11 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 
 ### For Matthew: the 2026-10-31 additions
 
-- [ ] **`+` and `-` in a real window.** Both front ends were driven by simulated keys only. In
-      the GUI also try `Ctrl+=` / `Ctrl+-` with the cursor in a host box (plain `+` and `-`
-      type there), and the Slower/Faster buttons; Faster greys out at the starting interval.
+- [x] **Slower in a real window.** Matthew's screenshots, 2026-11-02: a trace of
+      www.google.com at "every 10s" in both the TUI and the GUI, with the GUI's Faster button lit.
+- [ ] **Faster in a real window**: `-` back down to the starting interval, where the GUI's
+      Faster button greys out. And in the GUI, `Ctrl+=` / `Ctrl+-` with the cursor in a host
+      box (plain `+` and `-` type there).
 - [ ] **The icon.** Save a square PNG (256x256 or bigger) as `ndpt\gui\icon.png`, then run
       `build.cmd`. Both exes get it, and so does the GUI's window and taskbar button
       (also when run with `python -m ndpt gui`).
@@ -114,6 +116,10 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       them ran over 50 ms. Watch for it.
 - [ ] GUI: the route diagram scrolls sideways past ~8 hops at 1280 px. Fit to width, or wrap
       long routes onto a second row?
+- [ ] GUI: after Slower, the over-time charts span 120 probes at the new pace (20 minutes at
+      10 s), so a short history is squeezed against the right edge (Matthew's trace screenshot,
+      2026-11-02). Start the x axis at the first sample until the history fills the span
+      (`charts.LatencyChart._scroll`).
 - [ ] GUI: no hover readout on the charts (a crosshair with the time and value); the tables
       carry the numbers for now.
 - [ ] GUI: closing while router-name lookups run leaves the process alive for a few seconds:

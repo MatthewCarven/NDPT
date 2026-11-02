@@ -271,3 +271,15 @@ runs on Node 24 rather than the retiring Node 20.
 
 **Not done:** no release yet; tagging one (and bumping the version first, or not)
 is Matthew's call.
+
+## 2026-11-02: Matthew's screenshots
+
+Matthew ran both front ends by hand against www.google.com and sent screenshots:
+the TUI's trace screen at round 28 and the GUI's trace tab at round 17, both slowed
+to "every 10s", seven hops, no loss. So Slower works in real windows, and the GUI
+draws right in dark mode at ~1280 px (the route diagram fits all seven hops). He's
+putting the pictures in the README.
+
+**Seen in the GUI's picture:** the hop's "ms over time" chart showed ~20 minutes
+(120 probes at 10 s) with only a few minutes of data, squeezed against its right
+edge. Added to TODO.md; not fixed yet.
