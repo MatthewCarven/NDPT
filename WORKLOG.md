@@ -375,3 +375,45 @@ passed as an ordinary user, and its trace of 1.1.1.1 found 6 hops through ping s
 and the error queue, so that path has met real routers too.
 
 **Not checked:** the TUI and GUI by hand on Linux or macOS. Steps 2 and 3 are in TODO.md.
+
+## 2026-11-25: Linux and macOS, step 2: builds on all three
+
+**What changed.** `packaging/build.py` builds for whatever system it runs on: `ndpt-tui` and
+`ndpt-gui` on Linux, and on macOS `ndpt-tui` and an app, `ndpt-gui.app` (always onedir: a
+one-file windowed app is deprecated, and PyInstaller 7 refuses it). `--release` puts the
+release's files in `dist/release`: the Windows exes as they are, a tar.gz per Linux program,
+a `ditto` zip per Mac one, so the execute bit, and the app's symlinks and signature, survive the
+download. `build.yml` builds on four machines: windows-latest, ubuntu-22.04 (glibc 2.35, so
+anything that new or newer), macos-15 (Apple silicon) and macos-15-intel. A tag's release
+carries all eight files.
+
+**Each build is started before it's kept.** `packaging/smoke.py` runs the GUI with
+`NDPT_QUIT_AFTER` (read only by `packaging/ndpt_gui.py`, which queues `closeAllWindows` from a
+thread), and the TUI on a pseudo-terminal, sending it `q`. It must exit 0 with no traceback.
+It passes on all four, as does the Windows GUI here.
+
+**A bare Ubuntu for Linux.** `packaging/bare_linux.sh` runs both again in `ubuntu:24.04` with
+only Python, Xvfb and OpenGL added. Three runs to get it working:
+- `xvfb-run` in the container never finished (20 minutes, then 10 with a limit). Not
+  understood; starting `Xvfb` directly works, so that's what it does now.
+- smoke.py's own time limit didn't stop it either: a one-file program runs as two processes,
+  and the child held the output pipe open after the parent was killed. Output now goes to a
+  file, the program runs in its own process group, and a hang kills the group.
+- Then the real finding: the GUI needs `libEGL.so.1` from the system. PyInstaller leaves
+  OpenGL out on purpose (it must match the graphics driver); every desktop has it. With
+  libegl1, libgl1 and libopengl0 added, the GUI runs.
+- `DEBIAN_FRONTEND=noninteractive` too, though tzdata wasn't the culprit this time.
+
+**macOS's minimum is 14.** The build lists every Mach-O file's minimum macOS. Python's are
+10.15 (Intel) and 11.0 (arm64), numpy's 14.0, Qt's frameworks 14.4, and PySide6's own binding
+modules say 26.0. They load on macOS 15 all the same (the smoke test runs there), so the label
+isn't enforced. PySide6's wheel is tagged macOS 14, which is the real floor. Building on
+macos-15 rather than macos-latest (26) keeps proving that.
+
+**Sizes.** Windows: TUI 24 MB, GUI 70 MB. Linux: 40 and 108 (TODO: why so much bigger).
+macOS: TUI 21 MB, the app 128 MB unpacked, 49 MB zipped (Intel: 22, 134 and 54).
+
+**Also.** `test_ping_tab_charts_and_tabulates_every_host` failed on the Intel Mac. The demo
+network loses 1% at the destination, a lost probe is a NaN gap in the chart, and the test
+wanted every point above zero: it failed about one run in eight, anywhere. It now checks the
+answered points only.

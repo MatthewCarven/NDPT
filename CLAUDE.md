@@ -91,15 +91,24 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
 - **`packaging/smoke.py` starts a built program and quits it**: the GUI through
   `NDPT_QUIT_AFTER` (read only by `packaging/ndpt_gui.py`, which queues `closeAllWindows`),
   the TUI on a pseudo-terminal with a `q` (so not on Windows). A windowed exe that crashes
-  on Windows leaves an error box open, so a hang counts as a failure.
+  on Windows leaves an error box open, so a hang counts as a failure. A one-file program is
+  two processes (the unpacker and its child), so smoke.py writes output to a file, not a
+  pipe, and kills the whole process group on a hang.
 - **GitHub Actions builds on four machines** (`.github/workflows/build.yml`, Python 3.14):
   windows-latest; ubuntu-22.04 (glibc 2.35); macos-15 (arm64) and macos-15-intel (x86_64).
-  Tests without the `network` marker, `build.py --release`, smoke.py on each, and Linux's
-  again in a bare `ubuntu:24.04` container. Qt's xcb libraries are apt-installed so
-  PyInstaller packs them (it leaves out libxcb, libGL/libEGL and Wayland's). A `v*` tag
+  Tests without the `network` marker, `build.py --release`, smoke.py on each, the upload,
+  then Linux's again in a bare `ubuntu:24.04` (`packaging/bare_linux.sh`). Qt's xcb
+  libraries are apt-installed so PyInstaller packs them; it leaves out libxcb, Wayland's,
+  and OpenGL (libEGL/libGL), so the container adds libegl1, libgl1 and libopengl0, as any
+  desktop has. `xvfb-run` hung in that container: it starts `Xvfb` itself. A `v*` tag
   also makes a Release from every build, but only if the tag matches `pyproject.toml` and
   `ndpt.__version__`. A release is public: tag only when Matthew says so.
-  `gh workflow run build.yml` builds without releasing.
+  `gh workflow run build.yml` builds without releasing (~8 minutes).
+- **The Mac app needs macOS 14** (PySide6's wheel and Qt). PySide6's own modules are marked
+  minos 26.0 but load on 15: that's why the Macs build on macos-15, not macos-latest (26).
+- **Reading a job's log while the run is going:** `gh run view --log` waits for the whole
+  run; `gh api --allow-escape-sequences repos/MatthewCarven/NDPT/actions/jobs/ID/logs` doesn't.
+  Git Bash here has no `jq`: use `gh ... --jq`.
 - **`Session.set_interval` wakes sleeping beats** (`_wake` is pulsed, `_next_beat` re-reads the
   interval), so speeding up from 60 s doesn't wait out the 60 s. `faster()` stops at
   `base_interval`, what the session was made with.

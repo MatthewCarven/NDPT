@@ -91,13 +91,22 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       socket kinds, IPv4 and IPv6); a real trace of 1.1.1.1 from WSL as root (9 hops); GitHub's
       macOS pinging localhost and tracing 1.1.1.1 (11 hops) as an ordinary user.
       `.github/workflows/test.yml` runs the tests on all three on every push.
-- [ ] **Step 2: builds on all three.** `build.yml` as a matrix (windows, ubuntu-22.04 for an older
-      glibc, macos); a release carries the TUI and GUI for each. PyInstaller can't build for
-      another OS. To settle: the macOS GUI as an `.app` in a zip (arm64 only, or x86_64 too?);
-      the Linux GUI's system libraries; an `.icns` for macOS once the icon exists.
+- [x] **Step 2: builds on all three**, 2026-11-25. `build.yml` builds on windows-latest,
+      ubuntu-22.04 (glibc 2.35), macos-15 (Apple silicon) and macos-15-intel, and a release
+      carries all of it: the Windows exes, a tar.gz per Linux program, a zip per Mac one (the GUI
+      as `ndpt-gui.app`). `packaging/smoke.py` starts and quits every build before it's kept, and
+      Linux's again in a bare `ubuntu:24.04` with only an X server and OpenGL added
+      (`packaging/bare_linux.sh`). Found along the way: the Linux GUI needs the system's OpenGL
+      (libEGL; PyInstaller leaves it out on purpose), which every desktop has; the Mac app needs
+      macOS 14 (PySide6 and Qt say so; PySide6's own modules claim 26 but load on 15).
 - [ ] **Step 3: release notes per system.** macOS: Gatekeeper and unsigned apps (right-click >
-      Open, or `xattr -d com.apple.quarantine`). Linux: `chmod +x`, the Qt libraries, and ping
-      sockets on Ubuntu (README "How it probes"; `setcap cap_net_raw+ep` suits a one-file exe).
+      Open, or System Settings > Privacy & Security > Open Anyway, or `xattr -dr
+      com.apple.quarantine ndpt-gui.app`); macOS 14 or newer. Linux: built on Ubuntu 22.04, so
+      glibc 2.35 or newer; the GUI needs OpenGL (any desktop has it); ping sockets on Ubuntu
+      (README "How it probes"; `sudo setcap cap_net_raw+ep ndpt-gui` suits a one-file program).
+      Which download is which (Apple silicon or Intel). The notes still say "Windows only".
+- [ ] Linux builds are big: the TUI 40 MB and the GUI 108 MB, against 24 and 70 on Windows.
+      Maybe unstripped libraries (PyInstaller's `--strip`), or Qt's ICU data. Look before a release.
 - [ ] **For Matthew, if a Linux PC or a Mac turns up:** the TUI and GUI by hand there. GitHub ran
       their tests offscreen only. (Both probers have met real routers: WSL as root, GitHub's
       Ubuntu through ping sockets, 6 hops to 1.1.1.1, and GitHub's macOS, 11 hops.)
