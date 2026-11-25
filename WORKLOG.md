@@ -331,3 +331,45 @@ only slow to reply. Loss that carries on keeps its green/yellow/red.
 hop green. (Rich printed no colour codes to a pipe even with FORCE_COLOR, so the check
 read the cells' styles from `hop_numbers` directly.) **Not seen:** the dim cells in a
 real terminal by eye.
+
+## 2026-11-25: Linux and macOS, step 1: a prober
+
+Matthew asked about builds for other systems (and, later, for older projects too).
+NDPT's only Windows-only part was the prober, so a Linux or Mac build would have
+opened and probed nothing; the plan is three steps (prober, builds, release notes),
+and this was the first.
+
+**`ndpt/core/backends/posix_icmp.py`** pings and traces with ordinary sockets, our own
+code rather than icmplib. It prefers ping sockets (SOCK_DGRAM ICMP: no root, any TTL),
+falls back to a raw socket when only root can, and otherwise raises a PermissionError
+naming the three ways to allow it. Each probe gets its own socket, as each Windows
+probe gets its own handle. Linux ping sockets hear ICMP errors on the error queue
+(IP_RECVERR), with the router's address in the control message; macOS and raw sockets
+get them as packets quoting the probe, matched by identifier, sequence and quoted
+destination. `make_prober` uses it everywhere but Windows.
+
+**Found on the way:** WSL's Ubuntu 24.04 has `net.ipv4.ping_group_range` "1 0", ping
+sockets shut, and so has GitHub's Ubuntu runner: on Ubuntu, NDPT needs that sysctl,
+root, or `setcap` (README "How it probes" says how). macOS lets everyone, tracing
+included.
+
+**Checked:**
+- `tests/netns/route.sh` (new): client, router and destination in network namespaces;
+  replies, time exceeded and unreachable, IPv4 and IPv6, raw sockets as root and ping
+  sockets as a user, plus a trace each way. Passes in WSL and on GitHub's Ubuntu.
+  Two kernel habits needed working around (CLAUDE.md has them): Linux's "no route"
+  shares rate tokens that every "time exceeded" zeroes, and fresh namespaces' first
+  IPv6 contact waited 1 s for neighbour discovery.
+- WSL as root (raw sockets): a 5-round trace of 1.1.1.1, all 9 hops, no loss. As
+  uid 1000: the PermissionError message.
+- GitHub's macOS, as an ordinary user: localhost pings pass, and a trace of 1.1.1.1
+  found 11 hops through real routers.
+- New tests in `tests/test_posix_icmp.py` parse replies, errors and error-queue
+  entries (these run on Windows too) and ping localhost off Windows. 136 tests here.
+- `.github/workflows/test.yml` (new) runs the tests on Windows, Linux and macOS on
+  every push, GUI included (Linux needed four libraries for offscreen Qt). The first
+  run passed on all three.
+
+**Not checked:** the Linux prober's ping sockets against real routers (only the
+namespaced ones; the next CI run's last step may show it), and the TUI and GUI by
+hand on Linux or macOS. Steps 2 and 3 are in TODO.md.

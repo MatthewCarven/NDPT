@@ -83,6 +83,26 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 - [ ] Version info in the exes (File > Properties > Details shows nothing yet): PyInstaller's
       `--version-file`.
 
+## Linux and macOS
+
+- [x] **Step 1: a prober** (`ndpt/core/backends/posix_icmp.py`), 2026-11-25. Ping sockets (no root;
+      macOS always, Linux when `ping_group_range` allows), else raw sockets (root), else a message
+      saying what to change. Checked: `tests/netns/route.sh` in WSL and on GitHub's Ubuntu (both
+      socket kinds, IPv4 and IPv6); a real trace of 1.1.1.1 from WSL as root (9 hops); GitHub's
+      macOS pinging localhost and tracing 1.1.1.1 (11 hops) as an ordinary user.
+      `.github/workflows/test.yml` runs the tests on all three on every push.
+- [ ] **Step 2: builds on all three.** `build.yml` as a matrix (windows, ubuntu-22.04 for an older
+      glibc, macos); a release carries the TUI and GUI for each. PyInstaller can't build for
+      another OS. To settle: the macOS GUI as an `.app` in a zip (arm64 only, or x86_64 too?);
+      the Linux GUI's system libraries; an `.icns` for macOS once the icon exists.
+- [ ] **Step 3: release notes per system.** macOS: Gatekeeper and unsigned apps (right-click >
+      Open, or `xattr -d com.apple.quarantine`). Linux: `chmod +x`, the Qt libraries, and ping
+      sockets on Ubuntu (README "How it probes"; `setcap cap_net_raw+ep` suits a one-file exe).
+- [ ] **For Matthew, if a Linux PC or a Mac turns up:** the TUI and GUI by hand there. GitHub ran
+      their tests offscreen only, and the Linux prober has met real routers only as root in WSL
+      (GitHub's Ubuntu traced 1.1.1.1 through ping sockets only if Azure lets ICMP out: see the
+      test run's last step).
+
 ## Phase 5: Performance testing
 
 - [ ] Path MTU discovery: set `IP_FLAG_DF` (0x2) in `IP_OPTION_INFORMATION.Flags`. Status
@@ -95,8 +115,11 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
 - [ ] **Choose the source interface.** The laptop has two links (Wi-Fi and the phone's USB
       tether), and the first hop flips between them. `IcmpSendEcho2Ex` takes a source
       address; offer `--source`/`--interface`.
-- [ ] icmplib backend for Linux/macOS (`make_prober` raises NotImplementedError off Windows).
-- [ ] IPv6 is only tested on loopback: this network has no global IPv6.
+- [x] A Linux/macOS prober: `posix_icmp.py`, our own sockets rather than icmplib. Done 2026-11-25
+      (see "Linux and macOS" above).
+- [ ] IPv6 over a real network is untested: this network has no global IPv6. The Linux prober's
+      IPv6 is tested against routers in network namespaces (`tests/netns/route.sh`); the
+      Windows prober's only on loopback.
 - [ ] Output piped into something that stops reading early (`Select-Object -First N`, `head`)
       ends in an OSError traceback on flush; quieten it.
 - [ ] TCP ping to a closed port reports an inflated time on Windows, which retries the SYN

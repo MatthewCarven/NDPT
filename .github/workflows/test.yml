@@ -2,7 +2,8 @@
 # (Actions > test > Run workflow).
 #
 #   Every system: the tests that send nothing (not the "network" ones), GUI included.
-#   Linux, macOS: pings to localhost through their prober (ndpt/core/backends/posix_icmp.py).
+#   Linux, macOS: pings to localhost through their prober (ndpt/core/backends/posix_icmp.py),
+#                 as an ordinary user: ping sockets (opened up first on Linux).
 #   Linux:        tests/netns/route.sh, a little routed network in namespaces (needs sudo).
 #   Linux, macOS: a trace of 1.1.1.1, to see what real routers send back. Cloud machines
 #                 may block ICMP, so it can't fail the run.
@@ -38,6 +39,10 @@ jobs:
 
       - name: Test
         run: python -m pytest -q -m "not network"
+
+      - name: Let everyone use ping sockets, as some distributions do (Ubuntu doesn't)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"
 
       - name: Ping localhost
         if: runner.os != 'Windows'

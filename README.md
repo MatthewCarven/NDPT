@@ -17,6 +17,16 @@ py -3.14 -m venv .venv
 .venv\Scripts\python -m pip install -e ".[dev,tui,gui]"
 ```
 
+On Linux or macOS (Python 3.12 or newer):
+
+```
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev,tui,gui]"
+```
+
+and then `.venv/bin/python` wherever this README says `.venv\Scripts\python`. On
+Ubuntu, ping first needs a one-off change; see [How it probes](#how-it-probes).
+
 The `tui` extra is Textual (pinned at 8.2.8). The `gui` extra is PySide6-Essentials
 6.12.0 (PySide6 without its add-ons, which NDPT doesn't use) and pyqtgraph 0.14.0.
 The command line works without either.
@@ -159,6 +169,22 @@ Administrator rights; that hasn't been confirmed from a non-elevated shell yet (
 TODO.md). The API rounds times down to whole milliseconds, so NDPT times each probe
 itself as well.
 
+On Linux and macOS it uses "ping sockets", which let an ordinary user send pings with
+any TTL, so tracing needs no root either. macOS allows them for everyone. Linux allows
+them for the groups in `net.ipv4.ping_group_range`, and some distributions leave that
+shut: Ubuntu 24.04 does. Without ping sockets NDPT falls back to a raw socket, which
+works as root. Otherwise it stops and says what to change. Any one of these does it:
+
+```
+sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"   everyone, until the next boot
+echo 'net.ipv4.ping_group_range = 0 2147483647' | sudo tee /etc/sysctl.d/60-ping.conf
+                                                           ...and from then on
+sudo .venv/bin/python -m ndpt trace 1.1.1.1                as root, this time only
+```
+
+(`sudo setcap cap_net_raw+ep` on a program also works, as Ubuntu does for `ping`, but on
+a venv's python it would apply to everything that runs that interpreter.)
+
 ## Tests
 
 ```
@@ -171,6 +197,15 @@ that's never routed). Everything else runs on a scripted fake prober. The GUI
 tests run offscreen (`QT_QPA_PLATFORM=offscreen`); they're skipped without the
 `gui` extra.
 
+`tests/netns/route.sh` checks the Linux prober against real routers without the
+internet: it builds a client, a router and a destination out of network namespaces,
+then checks replies, "time exceeded" and "unreachable" over IPv4 and IPv6, with raw
+sockets and with ping sockets. It needs root: `sudo bash tests/netns/route.sh`, or
+from Windows `wsl -d Ubuntu-24.04 -u root -- bash tests/netns/route.sh`.
+
+GitHub runs all of it on Windows, Linux and macOS on every push
+(`.github/workflows/test.yml`).
+
 ## Layout
 
 ```
@@ -178,12 +213,13 @@ ndpt/
   cli.py  textviz.py         command line, text sparklines and cells
   core/   models.py stats.py session.py ping.py trace.py resolve.py runner.py
           snapshot.py        frozen copies of a session, for the GUI's thread
-    backends/  win_icmp.py tcp.py fake.py
+    backends/  win_icmp.py posix_icmp.py (Linux, macOS) tcp.py fake.py
   tui/    app.py ping_screen.py trace_screen.py widgets.py
   gui/    app.py main_window.py bridge.py ping_view.py trace_view.py
           route_graph.py charts.py settings_view.py theme.py widgets.py
 tests/                       test_tui.py drives the TUI headless (Textual's pilot);
                              test_gui.py the GUI offscreen
+  netns/                     route.sh: the Linux prober against a namespaced network
 packaging/                   build.py, and what each exe runs (ndpt_tui.py, ndpt_gui.py)
 starttui.cmd                 the TUI without activating the venv
 build.cmd                    the Windows programs, into dist\

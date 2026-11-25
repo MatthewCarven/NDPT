@@ -16,6 +16,21 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   full admin rights; `runas /trustlevel` does nothing, and a restricted-token launch dies with
   `0xC0000142`. "Works without admin" can only be checked on another machine (TODO.md has the
   steps). Quick test: `socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)` opens only with admin rights.
+- **Linux and macOS probe through `backends/posix_icmp.py`**: ping sockets (SOCK_DGRAM ICMP, no
+  root), else raw sockets (root), else a PermissionError saying what to change. A Linux ping
+  socket rewrites the ICMP identifier and hears errors only on its error queue (`IP_RECVERR`,
+  `recvmsg(MSG_ERRQUEUE)`, the router's address in the cmsg). macOS ping sockets and raw sockets
+  get errors as packets quoting the probe, keep our identifier, and (IPv4) include the IP
+  header. **Ubuntu 24.04 shuts ping sockets** (`ping_group_range` "1 0"), in WSL and on GitHub.
+- **`tests/netns/route.sh` tests the Linux prober in WSL**, from PowerShell:
+  `wsl -d Ubuntu-24.04 -u root --cd <repo> -- bash tests/netns/route.sh` (`-u root` asks no
+  password). A command after it runs inside the client's namespace instead (`ping -c1 10.9.0.9`).
+  Two kernel habits it works around: with `icmp_ratelimit=0` every "time exceeded" zeroes the
+  router's tokens for the client, and "no route" (`ip_error`) needs a second's worth, so the
+  unreachable probes go first and the runs are 1.5 s apart; and the first IPv6 contact in fresh
+  namespaces can wait 1 s for neighbour discovery, so it pings first.
+- **`.github/workflows/test.yml` runs the tests on Windows, Linux and macOS on every push**,
+  plus localhost pings, the namespaced network (sudo) and a look at a trace of 1.1.1.1.
 - **IcmpSendEcho's round trip is whole milliseconds, rounded down.** `combine_rtt` clamps our
   own `perf_counter` timing into that millisecond. Don't "fix" a LAN hop reading 0.4 ms.
 - **`Session._sleep` must always yield**, even with a delay of 0 or less. Windows' ~15 ms timer
