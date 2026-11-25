@@ -99,9 +99,8 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       Open, or `xattr -d com.apple.quarantine`). Linux: `chmod +x`, the Qt libraries, and ping
       sockets on Ubuntu (README "How it probes"; `setcap cap_net_raw+ep` suits a one-file exe).
 - [ ] **For Matthew, if a Linux PC or a Mac turns up:** the TUI and GUI by hand there. GitHub ran
-      their tests offscreen only, and the Linux prober has met real routers only as root in WSL
-      (GitHub's Ubuntu traced 1.1.1.1 through ping sockets only if Azure lets ICMP out: see the
-      test run's last step).
+      their tests offscreen only. (Both probers have met real routers: WSL as root, GitHub's
+      Ubuntu through ping sockets, 6 hops to 1.1.1.1, and GitHub's macOS, 11 hops.)
 
 ## Phase 5: Performance testing
 

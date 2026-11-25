@@ -370,6 +370,8 @@ included.
   every push, GUI included (Linux needed four libraries for offscreen Qt). The first
   run passed on all three.
 
-**Not checked:** the Linux prober's ping sockets against real routers (only the
-namespaced ones; the next CI run's last step may show it), and the TUI and GUI by
-hand on Linux or macOS. Steps 2 and 3 are in TODO.md.
+The second run opened ping sockets on GitHub's Ubuntu first: its localhost pings then
+passed as an ordinary user, and its trace of 1.1.1.1 found 6 hops through ping sockets
+and the error queue, so that path has met real routers too.
+
+**Not checked:** the TUI and GUI by hand on Linux or macOS. Steps 2 and 3 are in TODO.md.
