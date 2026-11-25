@@ -99,12 +99,18 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       (`packaging/bare_linux.sh`). Found along the way: the Linux GUI needs the system's OpenGL
       (libEGL; PyInstaller leaves it out on purpose), which every desktop has; the Mac app needs
       macOS 14 (PySide6 and Qt say so; PySide6's own modules claim 26 but load on 15).
-- [ ] **Step 3: release notes per system.** macOS: Gatekeeper and unsigned apps (right-click >
-      Open, or System Settings > Privacy & Security > Open Anyway, or `xattr -dr
-      com.apple.quarantine ndpt-gui.app`); macOS 14 or newer. Linux: built on Ubuntu 22.04, so
-      glibc 2.35 or newer; the GUI needs OpenGL (any desktop has it); ping sockets on Ubuntu
-      (README "How it probes"; `sudo setcap cap_net_raw+ep ndpt-gui` suits a one-file program).
-      Which download is which (Apple silicon or Intel). The notes still say "Windows only".
+- [x] **Step 3: release notes per system**, 2026-11-25 (`packaging/release-notes.md`): which
+      download is which, and per system how past the unsigned-program warning (macOS 15's
+      Privacy & Security > Open Anyway, 14's Control-click > Open, or `xattr`), the minimums
+      (macOS 14; glibc 2.35), and pings on Ubuntu (the sysctl, or `sudo ./ndpt-tui`). Checked in
+      WSL: `setcap` makes a one-file build refuse to start (PyInstaller's PYI-433, "could not
+      access /proc entry"), so the built programs' message no longer offers it; the TUI as root
+      pings fine. Not checked: the macOS steps by hand (GitHub's Macs can't show a dialog).
+- [ ] **After the next release:** the README's download line says "from the release after
+      v0.1.0"; name the release instead.
+- [ ] GUI: when there's no prober (Linux without ping permission), it prints the reason to
+      stderr and exits, with no window. Fine from a terminal; a message box would tell
+      someone who double-clicked it.
 - [ ] Linux builds are big: the TUI 40 MB and the GUI 108 MB, against 24 and 70 on Windows.
       Maybe unstripped libraries (PyInstaller's `--strip`), or Qt's ICU data. Look before a release.
 - [ ] **For Matthew, if a Linux PC or a Mac turns up:** the TUI and GUI by hand there. GitHub ran

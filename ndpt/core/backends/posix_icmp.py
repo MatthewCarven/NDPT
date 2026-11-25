@@ -4,7 +4,8 @@ Neither needs root for it. Both have "ping sockets" (SOCK_DGRAM with
 IPPROTO_ICMP), which let a user send echo requests with any TTL: macOS for
 everyone, Linux for the groups in net.ipv4.ping_group_range (most
 distributions open it to all; WSL and some minimal systems leave it shut).
-Failing that, a raw socket works for root, or for a program given CAP_NET_RAW.
+Failing that, a raw socket works for root, or for a program given CAP_NET_RAW
+(but not one built by packaging/build.py: see NO_PING_SOCKETS_BUILT).
 
 The two kernels hand back "time exceeded" differently. macOS, and any raw
 socket, deliver the ICMP error as a packet like any other, quoting the start
@@ -54,6 +55,19 @@ NO_PING_SOCKETS = (
     "sending pings here needs one of: ping sockets for your group "
     "(sudo sysctl -w net.ipv4.ping_group_range=\"0 2147483647\"), root, or CAP_NET_RAW "
     "for this program (sudo setcap cap_net_raw+ep PROGRAM)")
+# A one-file program (packaging/build.py) won't start with a capability: Linux makes it
+# undumpable, and the unpacked child can no longer read its parent's /proc entry, which
+# PyInstaller checks. So the built programs don't offer setcap.
+NO_PING_SOCKETS_BUILT = (
+    "sending pings here needs ping sockets for your group "
+    "(sudo sysctl -w net.ipv4.ping_group_range=\"0 2147483647\"), or root (sudo)")
+
+
+def no_ping_sockets(built: bool | None = None) -> str:
+    """What to change, for running from source or as a built program (PyInstaller's)."""
+    if built is None:
+        built = getattr(sys, "frozen", False)
+    return NO_PING_SOCKETS_BUILT if built else NO_PING_SOCKETS
 
 
 def error_status(kind: int, code: int, v6: bool) -> tuple[ProbeStatus | None, str]:
@@ -287,4 +301,4 @@ def _need_raw() -> bool:
         except PermissionError:
             continue
         return kind == socket.SOCK_RAW
-    raise PermissionError(NO_PING_SOCKETS)
+    raise PermissionError(no_ping_sockets())

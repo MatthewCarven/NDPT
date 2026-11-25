@@ -4,8 +4,9 @@ Ping hosts and trace routes, live. One engine, with three front ends: a
 command line, a terminal UI and a desktop GUI. See [PLAN.md](PLAN.md) for the
 design and the phases.
 
-**Download:** Windows programs that need no Python are on the
-[Releases page](https://github.com/MatthewCarven/NDPT/releases/latest).
+**Download:** programs that need no Python are on the
+[Releases page](https://github.com/MatthewCarven/NDPT/releases/latest), with notes on
+running them: for Windows, and from the release after v0.1.0, Linux and macOS too.
 
 ![NDPT's GUI tracing www.google.com](docs/images/ndpt-gui-trace.png)
 ![NDPT's TUI tracing www.google.com](docs/images/ndpt-tui-trace.png)
@@ -200,7 +201,9 @@ sudo .venv/bin/python -m ndpt trace 1.1.1.1                as root, this time on
 ```
 
 (`sudo setcap cap_net_raw+ep` on a program also works, as Ubuntu does for `ping`, but on
-a venv's python it would apply to everything that runs that interpreter.)
+a venv's python it would apply to everything that runs that interpreter. And not on the
+downloaded programs: one given a capability refuses to start, because the part that unpacks
+it can no longer be checked by the part it unpacks. Their message leaves setcap out.)
 
 ## Tests
 

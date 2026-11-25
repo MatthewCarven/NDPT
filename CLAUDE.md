@@ -104,6 +104,9 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   also makes a Release from every build, but only if the tag matches `pyproject.toml` and
   `ndpt.__version__`. A release is public: tag only when Matthew says so.
   `gh workflow run build.yml` builds without releasing (~8 minutes).
+- **`setcap` breaks a one-file Linux build**: it won't start (PYI-433, the child can't read
+  its parent's /proc entry once the program is undumpable). So `no_ping_sockets()` in
+  posix_icmp.py leaves setcap out when `sys.frozen`; the release notes offer the sysctl or sudo.
 - **The Mac app needs macOS 14** (PySide6's wheel and Qt). PySide6's own modules are marked
   minos 26.0 but load on 15: that's why the Macs build on macos-15, not macos-latest (26).
 - **Reading a job's log while the run is going:** `gh run view --log` waits for the whole

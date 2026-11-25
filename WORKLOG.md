@@ -417,3 +417,24 @@ macOS: TUI 21 MB, the app 128 MB unpacked, 49 MB zipped (Intel: 22, 134 and 54).
 network loses 1% at the destination, a lost probe is a NaN gap in the chart, and the test
 wanted every point above zero: it failed about one run in eight, anywhere. It now checks the
 answered points only.
+
+## 2026-11-25: Linux and macOS, step 3: release notes for each system
+
+`packaging/release-notes.md` now opens every release with a table of which download is which
+(Windows; Linux x86_64; Mac with Apple silicon; Mac with Intel), then per system: past the
+unsigned-program warning (SmartScreen; macOS 15's Privacy & Security > Open Anyway, 14's
+Control-click > Open, or `xattr -dr com.apple.quarantine`), the minimums (macOS 14, glibc 2.35),
+and pings on Linux.
+
+**setcap doesn't work on the built programs**, which TODO had guessed it would. Tried in WSL
+with the Linux build from GitHub: given `cap_net_raw+ep`, the one-file TUI and GUI both refuse
+to start with PyInstaller's "[PYI-433:ERROR] Security validation failure: could not access
+/proc entry to determine the executable path for originating onefile parent process!". A
+program with a capability is undumpable, so its /proc entries belong to root, and the unpacked
+child can't check its parent. So `posix_icmp.no_ping_sockets()` leaves setcap out of the
+message when `sys.frozen`, and the notes offer the sysctl or `sudo ./ndpt-tui` (checked: as
+root, the built TUI pings 127.0.0.1 with no loss). Without either, the built TUI prints the
+message and exits 1.
+
+Not checked: the macOS steps by hand. GitHub's Macs run the builds but can't show what a
+downloaded, quarantined app does on a double-click.

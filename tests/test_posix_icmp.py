@@ -9,8 +9,8 @@ import pytest
 
 from ndpt.core.backends.posix_icmp import (IP_RECVERR, IPV6_RECVERR, SO_EE_ORIGIN_ICMP,
                                            SO_EE_ORIGIN_ICMP6, SO_EE_ORIGIN_LOCAL, Heard,
-                                           checksum, echo_request, parse_error_queue,
-                                           parse_packet, payload)
+                                           checksum, echo_request, no_ping_sockets,
+                                           parse_error_queue, parse_packet, payload)
 from ndpt.core.models import ProbeStatus
 
 DEST, ROUTER = "203.0.113.9", "192.0.2.1"
@@ -105,6 +105,15 @@ def test_a_local_error_on_the_queue_is_an_error_with_its_reason():
     assert parse_error_queue(b"", cmsg, v6=False) == \
         (ProbeStatus.ERROR, os.strerror(errno.EMSGSIZE), None, None)
     assert parse_error_queue(b"", [(socket.IPPROTO_IP, 99, b"")], v6=False) is None
+
+
+def test_built_programs_dont_suggest_setcap():
+    # A one-file build won't start with a capability (PyInstaller can't read its parent's
+    # /proc entry), so only running from source offers it.
+    assert "setcap" in no_ping_sockets(built=False)
+    assert "setcap" not in no_ping_sockets(built=True)
+    assert "ping_group_range" in no_ping_sockets(built=True)
+    assert no_ping_sockets() == no_ping_sockets(built=False)  # the tests run from source
 
 
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="the Windows prober is used there")
