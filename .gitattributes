@@ -1,0 +1,2 @@
+# Shell scripts run on Linux (tests/netns runs in WSL and on GitHub): keep them LF.
+*.sh text eol=lf

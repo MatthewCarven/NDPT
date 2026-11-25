@@ -16,8 +16,8 @@ def make_prober(protocol: str = "icmp", *, port: int = 443) -> Prober:
         if sys.platform == "win32":
             from ndpt.core.backends.win_icmp import WinIcmpProber
             return WinIcmpProber()
-        raise NotImplementedError(
-            "ICMP probing is only written for Windows so far (an icmplib backend is on the TODO)")
+        from ndpt.core.backends.posix_icmp import PosixIcmpProber  # Linux, macOS
+        return PosixIcmpProber()
     raise ValueError(f"unknown protocol {protocol!r}")
 
 
