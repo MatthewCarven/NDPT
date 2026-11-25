@@ -14,8 +14,10 @@ Linux needs a display for the GUI: `xvfb-run -a python packaging/smoke.py ...`.
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -28,13 +30,37 @@ def program(path: Path) -> Path:
     return path / "Contents" / "MacOS" / path.stem if path.suffix == ".app" else path
 
 
-def run_gui(exe: Path, args: list[str]) -> tuple[int, str]:
+# A one-file program runs as two processes: the one started unpacks the program and runs it
+# as its child. So it starts in a group of its own, and on a hang the whole group goes.
+GROUP = (dict(creationflags=subprocess.CREATE_NEW_PROCESS_GROUP) if sys.platform == "win32"
+         else dict(start_new_session=True))
+
+
+def kill(proc: subprocess.Popen) -> None:
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+    else:
+        os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait()
+
+
+def run_gui(exe: Path, args: list[str]) -> tuple[int | None, str]:
+    """Its exit code (None if it had to be killed) and what it printed."""
     env = os.environ | {"NDPT_QUIT_AFTER": str(RUN_FOR)}
-    done = subprocess.run([exe, *args], env=env, capture_output=True, timeout=LIMIT)
-    return done.returncode, (done.stdout + done.stderr).decode(errors="replace")
+    # A file, not a pipe: a child left holding a pipe would keep us waiting for its end.
+    with tempfile.TemporaryFile() as out:
+        proc = subprocess.Popen([exe, *args], env=env, stdout=out, stderr=subprocess.STDOUT,
+                                **GROUP)
+        try:
+            code = proc.wait(timeout=LIMIT)
+        except subprocess.TimeoutExpired:
+            kill(proc)
+            code = None
+        out.seek(0)
+        return code, out.read().decode(errors="replace")
 
 
-def run_tui(exe: Path, args: list[str]) -> tuple[int, str]:
+def run_tui(exe: Path, args: list[str]) -> tuple[int | None, str]:
     import fcntl
     import pty
     import select
@@ -44,8 +70,7 @@ def run_tui(exe: Path, args: list[str]) -> tuple[int, str]:
     main, sub = pty.openpty()
     fcntl.ioctl(sub, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))  # rows, columns
     env = os.environ | {"TERM": "xterm-256color"}
-    proc = subprocess.Popen([exe, *args], stdin=sub, stdout=sub, stderr=sub, env=env,
-                            start_new_session=True)
+    proc = subprocess.Popen([exe, *args], stdin=sub, stdout=sub, stderr=sub, env=env, **GROUP)
     os.close(sub)
     output = bytearray()
     start = time.monotonic()
@@ -70,8 +95,8 @@ def run_tui(exe: Path, args: list[str]) -> tuple[int, str]:
     try:
         code = proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        proc.kill()
-        raise subprocess.TimeoutExpired(exe, LIMIT) from None
+        kill(proc)
+        code = None
     return code, output.decode(errors="replace")
 
 
@@ -87,16 +112,16 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 2
     start = time.monotonic()
-    try:
-        code, output = (run_tui if tui else run_gui)(exe, args)
-    except subprocess.TimeoutExpired:
-        print(f"smoke: {path} was still running after {LIMIT} s: it didn't quit when told to. "
-              f"(On Windows, a windowed program that crashes leaves an error box open.)")
-        return 1
+    code, output = (run_tui if tui else run_gui)(exe, args)
     seconds = time.monotonic() - start
     crashed = code != 0 or "Traceback" in output
     if crashed or os.environ.get("SMOKE_SHOW"):
-        print(output[-6000:])
+        print(output[-8000:])
+    if code is None:
+        print(f"smoke: {path} was still running after {LIMIT} s, so it was killed: it didn't "
+              f"quit when told to. (On Windows, a windowed program that crashes leaves an "
+              f"error box open.)")
+        return 1
     print(f"smoke: {path} {' '.join(args)}: exit code {code} after {seconds:.0f} s"
           + (", and a traceback" if "Traceback" in output else "")
           + ("" if crashed else ": ok"))

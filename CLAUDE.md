@@ -84,10 +84,22 @@ Read PLAN.md (design and phases), TODO.md and WORKLOG.md first.
   build.cmd` couldn't find it in this folder. It ends with `pause`, which returns at once
   when stdin isn't a console. Windows won't replace a running exe, so it
   checks first and says which to close (Matthew runs the GUI from `dist\`).
-- **GitHub Actions builds the exes** (`.github/workflows/build.yml`, windows-latest, Python
-  3.14): tests without the `network` marker, then `packaging/build.py`. A `v*` tag also makes
-  a Release, but only if the tag matches `pyproject.toml` and `ndpt.__version__`. A release is
-  public: tag only when Matthew says so. `gh workflow run build.yml` builds without releasing.
+- **build.py builds for the system it runs on**, and only that (PyInstaller can't cross-build).
+  macOS's GUI is always an `.app` (onedir: PyInstaller 7 refuses a one-file windowed app).
+  `--release` puts the release's files in `dist/release`: Windows' exes as they are, else
+  archives (tar.gz, or a `ditto` zip on macOS, which keeps the app's symlinks and signature).
+- **`packaging/smoke.py` starts a built program and quits it**: the GUI through
+  `NDPT_QUIT_AFTER` (read only by `packaging/ndpt_gui.py`, which queues `closeAllWindows`),
+  the TUI on a pseudo-terminal with a `q` (so not on Windows). A windowed exe that crashes
+  on Windows leaves an error box open, so a hang counts as a failure.
+- **GitHub Actions builds on four machines** (`.github/workflows/build.yml`, Python 3.14):
+  windows-latest; ubuntu-22.04 (glibc 2.35); macos-15 (arm64) and macos-15-intel (x86_64).
+  Tests without the `network` marker, `build.py --release`, smoke.py on each, and Linux's
+  again in a bare `ubuntu:24.04` container. Qt's xcb libraries are apt-installed so
+  PyInstaller packs them (it leaves out libxcb, libGL/libEGL and Wayland's). A `v*` tag
+  also makes a Release from every build, but only if the tag matches `pyproject.toml` and
+  `ndpt.__version__`. A release is public: tag only when Matthew says so.
+  `gh workflow run build.yml` builds without releasing.
 - **`Session.set_interval` wakes sleeping beats** (`_wake` is pulsed, `_next_beat` re-reads the
   interval), so speeding up from 60 s doesn't wait out the 60 s. `faster()` stops at
   `base_interval`, what the session was made with.

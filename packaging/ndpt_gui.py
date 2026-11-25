@@ -6,8 +6,10 @@ instead.
 
 NDPT_QUIT_AFTER=SECONDS closes the window that long after starting, as if it had
 been closed by hand: packaging/smoke.py uses it to check a build starts and quits.
+If it's still running 30 s after that, it prints where every thread is and exits.
 """
 
+import faulthandler
 import os
 import sys
 import threading
@@ -18,6 +20,8 @@ if sys.stdout is None or sys.stderr is None:
 
 
 def quit_after(seconds: float) -> None:
+    faulthandler.dump_traceback_later(seconds + 30, exit=True)
+
     def close() -> None:
         time.sleep(seconds)
         from PySide6.QtCore import QMetaObject, Qt
