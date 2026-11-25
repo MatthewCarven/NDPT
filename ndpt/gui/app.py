@@ -7,8 +7,9 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pyqtgraph as pg
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ndpt.core.backends import Prober, make_prober
 from ndpt.core.backends.fake import DemoResolver, FakeProber, demo_route
@@ -49,9 +50,29 @@ def run(settings: Settings, *, hosts: Sequence[str] = (), trace: str | None = No
     app.setApplicationName("NDPT")
     if ICON.exists():
         app.setWindowIcon(QIcon(str(ICON)))
-    window = build(settings, hosts=hosts, trace=trace, demo=demo)
+    try:
+        window = build(settings, hosts=hosts, trace=trace, demo=demo)
+    except (NotImplementedError, OSError) as e:
+        # No prober: on Linux, most likely no permission to ping. The caller prints why, but
+        # someone who opened the GUI from a file manager has no terminal to see it in.
+        cant_probe(e, settings).exec()
+        raise
     window.show()
     try:
         return app.exec()
     finally:
         window.shutdown()
+
+
+def cant_probe(error: Exception, settings: Settings) -> QMessageBox:
+    """A box saying why the GUI can't start probing, and what to change; selectable, so the
+    command in it can be copied."""
+    reason = str(error) or type(error).__name__
+    box = QMessageBox(QMessageBox.Icon.Critical, "NDPT", "NDPT can't start probing.")
+    more = reason[:1].upper() + reason[1:] + "."
+    if settings.protocol == "icmp":
+        more += ("\n\nOr ping with TCP handshakes, which needs no permission, by starting "
+                 "it with --tcp 443 (TCP can't trace).")
+    box.setInformativeText(more)
+    box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    return box

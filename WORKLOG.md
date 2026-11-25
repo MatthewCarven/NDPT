@@ -438,3 +438,13 @@ message and exits 1.
 
 Not checked: the macOS steps by hand. GitHub's Macs run the builds but can't show what a
 downloaded, quarantined app does on a double-click.
+
+## 2026-11-25: the GUI says why it can't probe, in a box
+
+On Linux without permission to ping, `ndpt gui` printed the reason to stderr and quit before
+making a window: from a file manager, nothing happened at all. `gui.app.run` now shows
+`cant_probe()`'s box first (the reason, selectable so the command can be copied, and for ICMP,
+`--tcp 443` as the way that needs no permission), then lets the error go on to cli, which
+prints it and returns 1 as before. Changing the protocol in Settings already reported its
+errors in the Settings tab. Tested offscreen (the box recorded instead of shown) and looked at
+on Windows; not yet seen in a Linux build.

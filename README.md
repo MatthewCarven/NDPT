@@ -191,7 +191,8 @@ On Linux and macOS it uses "ping sockets", which let an ordinary user send pings
 any TTL, so tracing needs no root either. macOS allows them for everyone. Linux allows
 them for the groups in `net.ipv4.ping_group_range`, and some distributions leave that
 shut: Ubuntu 24.04 does. Without ping sockets NDPT falls back to a raw socket, which
-works as root. Otherwise it stops and says what to change. Any one of these does it:
+works as root. Otherwise it stops and says what to change (the GUI in a box, too). Any
+one of these does it:
 
 ```
 sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"   everyone, until the next boot

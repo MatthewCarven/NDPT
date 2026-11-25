@@ -444,3 +444,44 @@ def test_a_runner_waits_for_start_so_a_session_that_fails_at_once_is_still_heard
         assert "can't resolve no.such.host" in heard[0]
     finally:
         engine.shutdown()
+
+
+def test_a_gui_that_cant_probe_says_why_in_a_box_and_on_stderr(qapp, monkeypatch, capsys):
+    # Linux without permission to ping: opened from a file manager, there's no terminal to
+    # read the reason in, so a box says it too.
+    from ndpt.cli import main
+    from ndpt.core.backends.posix_icmp import no_ping_sockets
+    from ndpt.gui import app as gui_app
+
+    def no_prober(protocol, port=443):
+        raise PermissionError(no_ping_sockets(built=True))
+
+    shown = []
+    real = gui_app.cant_probe
+
+    class Shown:  # the real box, recorded instead of shown (exec would wait for a click)
+        def __init__(self, error, settings):
+            self.box = real(error, settings)
+
+        def exec(self):
+            shown.append(self.box)
+            return 0
+
+    monkeypatch.setattr(gui_app, "make_prober", no_prober)
+    monkeypatch.setattr(gui_app, "cant_probe", Shown)
+    assert main(["gui", "example.com"]) == 1
+    [box] = shown
+    assert box.text() == "NDPT can't start probing."
+    assert box.informativeText().startswith("Sending pings here needs ping sockets")
+    assert "ping_group_range" in box.informativeText() and "--tcp 443" in box.informativeText()
+    assert "sending pings here needs" in capsys.readouterr().err
+    box.deleteLater()
+
+
+def test_the_box_offers_tcp_only_when_it_was_icmp_that_failed(qapp):
+    from ndpt.gui.app import cant_probe
+
+    tcp = cant_probe(OSError("no route"), Settings(protocol="tcp"))
+    assert tcp.informativeText() == "No route."
+    assert "--tcp" in cant_probe(NotImplementedError(), Settings()).informativeText()
+    tcp.deleteLater()

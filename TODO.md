@@ -108,9 +108,10 @@ Everything below was only checked offscreen or in grabs of a window nobody touch
       pings fine. Not checked: the macOS steps by hand (GitHub's Macs can't show a dialog).
 - [ ] **After the next release:** the README's download line says "from the release after
       v0.1.0"; name the release instead.
-- [ ] GUI: when there's no prober (Linux without ping permission), it prints the reason to
-      stderr and exits, with no window. Fine from a terminal; a message box would tell
-      someone who double-clicked it.
+- [x] GUI: when there's no prober (Linux without ping permission), it printed the reason to
+      stderr and quit with no window. Done 2026-11-25: a box says it too (`gui.app.cant_probe`),
+      with the text selectable and, for ICMP, `--tcp 443` as the way that needs no permission.
+      Seen on Windows; not yet in a Linux build.
 - [ ] Linux builds are big: the TUI 40 MB and the GUI 108 MB, against 24 and 70 on Windows.
       Maybe unstripped libraries (PyInstaller's `--strip`), or Qt's ICU data. Look before a release.
 - [ ] **For Matthew, if a Linux PC or a Mac turns up:** the TUI and GUI by hand there. GitHub ran
