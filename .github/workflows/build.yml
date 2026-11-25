@@ -29,8 +29,9 @@ jobs:
           - {os: windows-latest, name: windows}
           # 22.04 for its older glibc (2.35): what's built runs on Linux that new or newer.
           - {os: ubuntu-22.04, name: linux-x86_64}
-          # macOS 15 rather than macos-latest (26), in case the build takes its minimum from
-          # the system it was made on. "Oldest macOS each needs" below says what it came to.
+          # macOS 15 rather than macos-latest (26), so the smoke test runs on an older macOS:
+          # PySide6's own modules are marked as needing 26, and this shows they load anyway.
+          # What the app does need, from PySide6 and Qt, is 14 (see "Oldest macOS" below).
           - {os: macos-15, name: macos-arm64}         # Apple silicon
           - {os: macos-15-intel, name: macos-x86_64}  # Intel Macs
     runs-on: ${{ matrix.os }}
@@ -93,15 +94,10 @@ jobs:
         timeout-minutes: 5
         run: python packaging/smoke.py dist/ndpt-tui --demo
 
-      # noninteractive: or a package that pulls in tzdata waits forever for a time zone.
       - name: Both again, on a bare Ubuntu 24.04 with only a display added
         if: runner.os == 'Linux'
         timeout-minutes: 10
-        run: >
-          docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$PWD:/ndpt" -w /ndpt ubuntu:24.04 bash -c '
-          apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 xvfb xauth >/dev/null &&
-          python3 packaging/smoke.py dist/ndpt-tui --demo &&
-          QT_QPA_PLATFORM=xcb xvfb-run -a python3 packaging/smoke.py dist/ndpt-gui --demo'
+        run: docker run --rm -v "$PWD:/ndpt" -w /ndpt ubuntu:24.04 bash packaging/bare_linux.sh
 
       - name: Oldest macOS each needs (to know; the highest is the answer)
         if: runner.os == 'macOS'

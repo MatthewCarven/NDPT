@@ -114,7 +114,8 @@ def test_ping_tab_charts_and_tabulates_every_host(window):
         [view.table.item(0, 0).text(), view.table.item(1, 0).text()]
     assert set(view.chart.curves) == {"example.com", "example.net"}
     xs, ys = view.chart.curves["example.com"].getData()
-    assert len(xs) >= 5 and (ys > 0).all()
+    answered = ys[ys == ys]  # a lost probe (1% on the demo network) is a gap: NaN
+    assert len(answered) >= 5 and (answered > 0).all()
     assert view.histogram.curves["example.com"].getData()[1].sum() >= 5  # a count per answer
     assert view.colour("example.com") != view.colour("example.net")
     assert "fake every 0.02s" in view.status.text()
