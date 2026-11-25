@@ -115,38 +115,55 @@ use `Ctrl+=` and `Ctrl+-` instead.
 
 The GUI follows Windows' light or dark mode.
 
-### Windows programs, for PCs without Python
+### Programs for computers without Python
 
 ```
 .venv\Scripts\python -m pip install -e ".[build]"    once: PyInstaller and Pillow
 build.cmd                                             dist\ndpt-tui.exe and dist\ndpt-gui.exe
 build.cmd gui                                         just one of them (tui or gui)
 build.cmd --onedir                                    a folder per program instead of one file
+build.cmd --release                                   and what a release carries, in dist\release
 ```
 
-Each exe takes the same arguments as `ndpt tui` and `ndpt gui`
-(`ndpt-gui.exe --demo`, `ndpt-tui.exe --trace 1.1.1.1`). The TUI is about
+On Linux and macOS, `.venv/bin/python packaging/build.py` takes the same options. Linux
+gets `dist/ndpt-tui` and `dist/ndpt-gui`; macOS gets `dist/ndpt-tui` and an app,
+`dist/ndpt-gui.app`. A build runs only on the kind of system that made it, and the same
+processor (a Mac with Apple silicon or Intel): PyInstaller can't build for another.
+
+Each program takes the same arguments as `ndpt tui` and `ndpt gui`
+(`ndpt-gui.exe --demo`, `ndpt-tui.exe --trace 1.1.1.1`). On Windows the TUI is about
 23 MB and builds in ~20 s; the GUI is about 70 MB, builds in ~90 s, and takes
 ~3 s to open, most of it unpacking itself. With `--onedir` it opens faster, but
 it's a folder to carry around rather than one file.
 
+`packaging/smoke.py` starts a built program, lets it run a few seconds, and quits it,
+to check the build left nothing out: `python packaging/smoke.py dist\ndpt-gui.exe --demo`.
+
 For an icon, save a square PNG (256x256 or bigger) as `ndpt\gui\icon.png` and
-build again: both exes get it, and so does the GUI's window and taskbar button.
+build again: both programs get it (except on Linux, where programs carry no icon), and
+so does the GUI's window and taskbar button.
 
 #### Releases, built by GitHub
 
-GitHub builds the exes too (`.github/workflows/build.yml`, on a Windows machine):
+GitHub builds the programs too (`.github/workflows/build.yml`), each on its own system:
+Windows, Linux (built on Ubuntu 22.04, so it runs on that or anything newer), and macOS for
+Apple silicon and for Intel. It starts and quits each one before keeping it.
 
 - **A release:** bump the version in `pyproject.toml` and `ndpt/__init__.py`, commit, then
   tag and push: `git tag v0.2.0`, `git push origin v0.2.0`. GitHub runs the tests, builds
-  both exes, and makes a Release with them attached, notes from
+  everything, and makes a Release with it all attached, notes from
   `packaging/release-notes.md` and a list of the changes. A tag that doesn't match the
   version stops the build before anything is released.
-- **Just a build:** Actions tab, *build*, *Run workflow*. The exes are on the run's page
-  (*Artifacts*) for 14 days.
+- **Just a build:** Actions tab, *build*, *Run workflow* (or `gh workflow run build.yml`).
+  The builds are on the run's page (*Artifacts*) for 14 days.
 
-The exes aren't code-signed, so Windows SmartScreen warns the first time they're run
-("More info", then "Run anyway"). The release notes say so.
+A release carries the Windows programs as they are (`ndpt-gui.exe`), and the others in
+archives, which keep a program's permission to run (`ndpt-gui-linux-x86_64.tar.gz`,
+`ndpt-gui-macos-arm64.zip`).
+
+Nothing is code-signed, so Windows SmartScreen warns the first time a program is run
+("More info", then "Run anyway"), and macOS won't open one downloaded from the internet
+until you allow it. The release notes say how.
 
 ### Reading a trace
 
