@@ -1,13 +1,19 @@
 #!/bin/bash
 # Runs inside a bare ubuntu:24.04 container (.github/workflows/build.yml), from the repo:
 #   docker run --rm -v "$PWD:/ndpt" -w /ndpt ubuntu:24.04 bash packaging/bare_linux.sh
-# Starts the built TUI and GUI on a system with nothing added but Python (for smoke.py) and
-# an X server, to see what they need from the system that the build didn't pack.
+# Starts the built TUI and GUI on a system with nothing added but Python (for smoke.py), an
+# X server, and what every Linux desktop has but the build leaves out on purpose, to see
+# that it needs nothing else.
+#
+# What the build leaves out (PyInstaller's choice): OpenGL, which must match the graphics
+# driver, so the system's own libEGL, libGL and libOpenGL (Ubuntu's libegl1, libgl1,
+# libopengl0); libxcb; and Wayland's client libraries.
 set -u
 export DEBIAN_FRONTEND=noninteractive  # or a package that pulls in tzdata asks for a time zone
+DESKTOP="libegl1 libgl1 libopengl0"
 
-apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 xvfb >/dev/null \
-    || exit 1
+apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 xvfb $DESKTOP \
+    >/dev/null || exit 1
 
 timeout 200 python3 packaging/smoke.py dist/ndpt-tui --demo || exit 1
 

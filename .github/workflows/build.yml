@@ -9,7 +9,8 @@
 #
 # Each build is started and quit again (packaging/smoke.py) before it's kept: that catches a
 # module, library or Qt plugin left out, which tests run from source never would. Linux's also
-# runs on a bare Ubuntu, with nothing installed but a display, to see what it needs from the system.
+# runs on a bare Ubuntu with only a display and OpenGL added (packaging/bare_linux.sh), to show
+# it needs nothing more from the system than a desktop has.
 name: build
 
 on:
@@ -94,11 +95,6 @@ jobs:
         timeout-minutes: 5
         run: python packaging/smoke.py dist/ndpt-tui --demo
 
-      - name: Both again, on a bare Ubuntu 24.04 with only a display added
-        if: runner.os == 'Linux'
-        timeout-minutes: 10
-        run: docker run --rm -v "$PWD:/ndpt" -w /ndpt ubuntu:24.04 bash packaging/bare_linux.sh
-
       - name: Oldest macOS each needs (to know; the highest is the answer)
         if: runner.os == 'macOS'
         run: |
@@ -114,6 +110,11 @@ jobs:
           name: ndpt-${{ matrix.name }}
           path: dist/release/*
           retention-days: 14
+
+      - name: Both again, on a bare Ubuntu 24.04 with only a display and OpenGL added
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: docker run --rm -v "$PWD:/ndpt" -w /ndpt ubuntu:24.04 bash packaging/bare_linux.sh
 
   release:
     needs: build
